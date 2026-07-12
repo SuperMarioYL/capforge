@@ -1,0 +1,67 @@
+{
+  "name": "capforge",
+  "version": "0.1.0",
+  "description": "Just-in-time capability forge for agentic coding agents — observe, synthesize, test, sign, and provenance-tag a new Skill when your agent hits a task none of its Skills cover.",
+  "license": "MIT",
+  "author": "SuperMarioYL",
+  "homepage": "https://github.com/SuperMarioYL/capforge",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SuperMarioYL/capforge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SuperMarioYL/capforge/issues"
+  },
+  "keywords": [
+    "agentic",
+    "skill",
+    "claude-code",
+    "mcp",
+    "agent",
+    "llm",
+    "provenance",
+    "ed25519",
+    "cli"
+  ],
+  "type": "module",
+  "bin": {
+    "capforge": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/ui/forge.html",
+    "README.md",
+    "LICENSE",
+    "VERSION"
+  ],
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "test:watch": "node --import tsx --test --watch test/*.test.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^1.0.6",
+    "@ai-sdk/openai": "^1.0.6",
+    "@hono/node-server": "^1.13.0",
+    "@noble/ed25519": "^2.0.0",
+    "@noble/hashes": "^1.5.0",
+    "ai": "^4.0.0",
+    "execa": "^9.2.0",
+    "gray-matter": "^4.0.3",
+    "hono": "^4.6.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

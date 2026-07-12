@@ -1,0 +1,47 @@
+name: release
+on:
+  push:
+    tags: ["v*.*.*"]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm pack
+      - name: Stage artifacts into dist/
+        run: |
+          mkdir -p dist
+          mv capforge-*.tgz dist/
+          (cd dist && sha256sum *.tgz > checksums.txt && cat checksums.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+
+  # Opt-in npm publish. A fresh repo has no NPM automation token and no
+  # publish pipeline, so this job is off by default. Flip repo variable
+  # NPM_PUBLISH=true and set the NPM_TOKEN secret to ship to the registry.
+  publish-npm:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') && vars.NPM_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

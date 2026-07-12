@@ -1,0 +1,28 @@
+# build output
+dist/
+*.tsbuildinfo
+
+# node
+node_modules/
+
+# build scratch
+.builder*
+.build*
+.stage_*
+.spawn.*
+_build_ctx.json
+PUBLISH_BLOCKED.md
+BUILD_SETUP_NEXT_STEPS.md
+
+# editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.log
+
+# local capforge store (don't ship forged keys/skills from dev runs)
+.capforge/
+
+# editor local config
+.claude/
+CLAUDE.md

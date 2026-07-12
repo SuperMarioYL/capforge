@@ -1,0 +1,7 @@
+{
+  "goal": "slugify a string",
+  "available_tools": ["Bash", "Read", "Write"],
+  "available_skills": ["slug-from-title"],
+  "example_inputs": ["Hello World", "Foo Bar Baz!", "Café Résumé"],
+  "expected_assert": "[ -n \"$OUTPUT\" ] && case \"$OUTPUT\" in *[!a-z0-9-]*) false;; esac"
+}

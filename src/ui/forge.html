@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>capforge — skill forge</title>
+    <style>
+      :root {
+        --bg: #f5f5f7;
+        --panel: #ffffff;
+        --text: #1d1d1f;
+        --muted: #6e6e73;
+        --line: #d2d2d7;
+        --primary: #5e5ce6;
+        --primary-soft: rgba(94, 92, 230, 0.12);
+        --accent: #10a37f;
+        --accent-soft: rgba(16, 163, 127, 0.12);
+        --bad: #c93a3a;
+        --code-bg: #f0f0f3;
+        --radius: 14px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1d1d1f;
+          --panel: #26262a;
+          --text: #f5f5f7;
+          --muted: #a1a1a8;
+          --line: #3a3a44;
+          --primary: #8985ff;
+          --primary-soft: rgba(137, 133, 255, 0.16);
+          --accent: #2dc79a;
+          --accent-soft: rgba(45, 199, 154, 0.16);
+          --code-bg: #1a1a1d;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+      }
+      header {
+        padding: 28px 32px 8px;
+        max-width: 1120px;
+        margin: 0 auto;
+      }
+      header .brand {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      header .brand .dot { color: var(--primary); }
+      header .tag {
+        color: var(--muted);
+        font-size: 14px;
+        margin-top: 4px;
+      }
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 16px 32px 64px;
+      }
+      .flow {
+        width: 100%;
+        height: 120px;
+        margin: 18px 0 28px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 22px;
+      }
+      h2 {
+        margin: 0 0 14px;
+        font-size: 17px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      h2 img { width: 20px; height: 20px; }
+      label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
+      textarea {
+        width: 100%;
+        min-height: 168px;
+        font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+        font-size: 12.5px;
+        background: var(--code-bg);
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px;
+        resize: vertical;
+      }
+      .row { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+      button {
+        font: inherit;
+        font-weight: 600;
+        padding: 9px 16px;
+        border-radius: 10px;
+        border: 1px solid var(--primary);
+        background: var(--primary);
+        color: #fff;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: transparent;
+        color: var(--primary);
+      }
+      button:disabled { opacity: 0.55; cursor: not-allowed; }
+      .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+      .badge {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+      }
+      .badge.ok { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+      .badge.no { color: var(--bad); border-color: var(--bad); background: rgba(201,58,58,0.10); }
+      .badge.pri { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+      .result {
+        margin-top: 16px;
+        padding: 14px;
+        background: var(--code-bg);
+        border-radius: 10px;
+        font-size: 13px;
+        display: none;
+      }
+      .result.show { display: block; }
+      .result .id { font-weight: 700; margin-bottom: 6px; }
+      pre {
+        margin: 8px 0 0;
+        padding: 12px;
+        background: var(--code-bg);
+        border-radius: 10px;
+        overflow: auto;
+        font-size: 11.5px;
+        max-height: 320px;
+      }
+      .skills { display: flex; flex-direction: column; gap: 10px; }
+      .skill {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 14px;
+        cursor: pointer;
+        transition: border-color 0.12s;
+      }
+      .skill:hover { border-color: var(--primary); }
+      .skill .name { font-weight: 600; font-size: 14px; }
+      .skill .meta { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+      .skill .badges { float: right; display: flex; gap: 6px; }
+      .detail { margin-top: 16px; display: none; }
+      .detail.show { display: block; }
+      .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+      .err { color: var(--bad); }
+      a { color: var(--primary); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">cap<span class="dot">forge</span></div>
+      <div class="tag">the just-in-time capability forge for agentic coding agents — observe → synthesize → test → sign → provenance</div>
+    </header>
+
+    <main>
+      <svg class="flow" viewBox="0 0 880 120" role="img" aria-label="forge loop">
+        <defs>
+          <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="var(--muted)"></path>
+          </marker>
+        </defs>
+        <g font-size="13" font-weight="600" text-anchor="middle">
+          <g>
+            <rect x="20" y="40" width="120" height="48" rx="12" fill="var(--primary-soft)" stroke="var(--primary)" stroke-width="1.5"></rect>
+            <text x="80" y="69" fill="var(--primary)">task</text>
+          </g>
+          <g>
+            <rect x="180" y="40" width="120" height="48" rx="12" fill="var(--primary-soft)" stroke="var(--primary)" stroke-width="1.5"></rect>
+            <text x="240" y="69" fill="var(--primary)">synthesize</text>
+          </g>
+          <g>
+            <rect x="340" y="40" width="120" height="48" rx="12" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"></rect>
+            <text x="400" y="69" fill="var(--accent)">test</text>
+          </g>
+          <g>
+            <rect x="500" y="40" width="120" height="48" rx="12" fill="var(--primary-soft)" stroke="var(--primary)" stroke-width="1.5"></rect>
+            <text x="560" y="69" fill="var(--primary)">sign</text>
+          </g>
+          <g>
+            <rect x="660" y="40" width="200" height="48" rx="12" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"></rect>
+            <text x="760" y="69" fill="var(--accent)">provenance → store</text>
+          </g>
+        </g>
+        <g stroke="var(--muted)" stroke-width="1.5" fill="none">
+          <line x1="140" y1="64" x2="178" y2="64" marker-end="url(#ah)"></line>
+          <line x1="300" y1="64" x2="338" y2="64" marker-end="url(#ah)"></line>
+          <line x1="460" y1="64" x2="498" y2="64" marker-end="url(#ah)"></line>
+          <line x1="620" y1="64" x2="658" y2="64" marker-end="url(#ah)"></line>
+        </g>
+      </svg>
+
+      <div class="grid">
+        <section class="panel" id="forge-panel">
+          <h2><img src="https://api.iconify.design/tabler:hammer.svg?color=%235E5CE6&width=20" alt="" /> Forge a new skill</h2>
+          <label for="task">task.json — the task your agent just failed at</label>
+          <textarea id="task" spellcheck="false">{
+  "goal": "slugify a string",
+  "available_tools": ["Bash", "Read", "Write"],
+  "available_skills": [],
+  "example_inputs": ["Hello World", "Foo Bar Baz!", "Café Résumé"],
+  "expected_assert": "[ -n \"$OUTPUT\" ] && case \"$OUTPUT\" in *[!a-z0-9-]*) false;; esac"
+}</textarea>
+          <div class="row">
+            <button id="forge-btn">Forge</button>
+            <label class="toggle"><input type="checkbox" id="use-llm" /> use my LLM (needs API key)</label>
+            <span class="badge pri" id="status">idle</span>
+          </div>
+          <div class="result" id="result"></div>
+        </section>
+
+        <section class="panel">
+          <h2><img src="https://api.iconify.design/tabler:stack-2.svg?color=%235E5CE6&width=20" alt="" /> Forged skills</h2>
+          <div class="skills" id="skills"><div class="empty">loading…</div></div>
+          <div class="detail" id="detail"></div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const SAMPLE = $("task").value;
+
+      function badge(ok, label) {
+        return `<span class="badge ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"} ${label}</span>`;
+      }
+
+      async function refreshSkills() {
+        const box = $("skills");
+        try {
+          const r = await fetch("/api/skills");
+          const { skills } = await r.json();
+          if (!skills.length) {
+            box.innerHTML = `<div class="empty">no forged skills yet — forge one →</div>`;
+            return;
+          }
+          box.innerHTML = skills
+            .map(
+              (s) => `
+            <div class="skill" data-id="${s.id}">
+              <div class="badges">${badge(s.test_pass, "test")} ${s.signed ? badge(s.sig_valid, "sig") : '<span class="badge">unsigned</span>'}</div>
+              <div class="name">${escapeHtml(s.name)}</div>
+              <div class="meta">${escapeHtml(s.id)} · ${escapeHtml(s.model)} · ${escapeHtml(s.created_at)}</div>
+            </div>`,
+            )
+            .join("");
+          for (const el of box.querySelectorAll(".skill")) {
+            el.addEventListener("click", () => showDetail(el.dataset.id));
+          }
+        } catch (e) {
+          box.innerHTML = `<div class="empty err">store not reachable — run <code>capforge init</code></div>`;
+        }
+      }
+
+      async function showDetail(id) {
+        const d = $("detail");
+        d.classList.add("show");
+        d.innerHTML = `<div class="empty">loading ${id}…</div>`;
+        const r = await fetch(`/api/skills/${encodeURIComponent(id)}`);
+        const j = await r.json();
+        const promote = j.signed && j.sig_valid
+          ? `<button class="secondary" id="promote-btn">Promote to ~/.claude/skills/</button>`
+          : `<span class="badge no">cannot promote (unsigned or tampered)</span>`;
+        d.innerHTML = `
+          <h2 style="margin-top:18px"><img src="https://api.iconify.design/tabler:file-text.svg?color=%235E5CE6&width=20" alt="" /> ${escapeHtml(id)}</h2>
+          <div class="row">${badge(j.test_pass, "test")} ${j.signed ? badge(j.sig_valid, "sig") : '<span class="badge">unsigned</span>'} ${promote}</div>
+          <label style="margin-top:12px">SKILL.md</label>
+          <pre>${escapeHtml(j.skillMd)}</pre>
+          <label style="margin-top:12px">provenance (ForgeRecord)</label>
+          <pre>${j.record ? escapeHtml(JSON.stringify(j.record, null, 2)) : "(unsigned — no provenance)"}</pre>
+        `;
+        const pb = $("promote-btn");
+        if (pb) pb.addEventListener("click", () => promoteSkill(id));
+      }
+
+      async function promoteSkill(id) {
+        const r = await fetch(`/api/skills/${encodeURIComponent(id)}/promote`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        });
+        const j = await r.json();
+        if (j.promoted) alert(`promoted ${id} → ${j.target}`);
+        else alert(`refused: ${j.reason ?? "unknown"}`);
+        refreshSkills();
+      }
+
+      async function forge() {
+        const btn = $("forge-btn");
+        const status = $("status");
+        btn.disabled = true;
+        status.textContent = "forging…";
+        status.className = "badge pri";
+        const task = $("task").value;
+        const useLLM = $("use-llm").checked;
+        try {
+          const r = await fetch("/api/forge", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ task: JSON.parse(task), mock: !useLLM }),
+          });
+          const j = await r.json();
+          if (j.error) throw new Error(j.error);
+          const res = $("result");
+          res.classList.add("show");
+          res.innerHTML = `
+            <div class="id">forged: ${escapeHtml(j.id)}</div>
+            <div>model: ${escapeHtml(j.record?.synthesis?.model ?? "capforge-mock")}</div>
+            <div>test: ${j.test.pass ? "PASS" : "FAIL"} (${j.test.traces.length} examples)</div>
+            <div>signed: ${j.signed ? "ed25519 ✓" : "NO (test failed)"}</div>
+            ${j.signed ? `<div>sig: ${escapeHtml(j.record.signature.sig.slice(0, 32))}…</div>` : ""}
+            <pre>${escapeHtml(JSON.stringify(j, null, 2))}</pre>`;
+          status.textContent = j.signed ? "signed ✓" : "unsigned";
+          status.className = `badge ${j.signed ? "ok" : "no"}`;
+          refreshSkills();
+        } catch (e) {
+          status.textContent = "error";
+          status.className = "badge no";
+          const res = $("result");
+          res.classList.add("show");
+          res.innerHTML = `<div class="err">${escapeHtml(e.message)}</div>`;
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      }
+
+      $("forge-btn").addEventListener("click", forge);
+      refreshSkills();
+    </script>
+  </body>
+</html>
