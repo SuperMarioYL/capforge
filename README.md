@@ -9,7 +9,7 @@
 <p align="center"><sub>capforge is the skill forge that synthesizes tested, signed skills for agentic coding agents.</sub></p>
 
 <p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-5E5CE6" alt="license"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-5E5CE6" alt="license"></a>
   <a href="https://github.com/SuperMarioYL/capforge/releases/latest"><img src="https://img.shields.io/github/v/release/SuperMarioYL/capforge?color=10A37F&label=release" alt="latest release"></a>
   <a href="https://github.com/SuperMarioYL/capforge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/SuperMarioYL/capforge/ci.yml?branch=main&label=ci" alt="CI"></a>
   <img src="https://img.shields.io/badge/node-%E2%89%A520.10-5E5CE6" alt="node">
