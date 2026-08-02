@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "name": "capforge",
+  "github": "https://github.com/SuperMarioYL/capforge",
+  "host": "capforge.lei6393.com",
+  "lang": { "primary": "zh", "toggle": true },
+  "accent": ["#f97316"],
+  "hero": {
+    "eyebrow": {
+      "zh": "运行时锻造 · 测试把关 · 本地签名",
+      "en": "Just-in-time · Test-gated · Locally signed"
+    },
+    "headline": {
+      "zh": "你的 agent 装了上千 skill\n还是会撞上没覆盖的任务",
+      "en": "Your agent has a thousand skills\nand still hits a task none cover"
+    },
+    "sub": {
+      "zh": "capforge 观察任务、当场锻造一个新 skill，测试它、签名它、打上来源标签，然后一键装进你的 skill 库。",
+      "en": "capforge observes the task, forges a new Skill on the spot, tests it, signs it, and provenance-tags it — then promotes it into your library."
+    },
+    "command": "npm i -g capforge",
+    "cta": { "zh": "查看 GitHub", "en": "See on GitHub" },
+    "ctaGithub": { "zh": "GitHub", "en": "GitHub" },
+    "scroll": { "zh": "向下看", "en": "Scroll" }
+  },
+  "advantages": [
+    {
+      "title": {
+        "zh": "撞上没覆盖的任务？当场锻造一个",
+        "en": "Hits a task nothing covers? Forge one on the spot"
+      },
+      "body": {
+        "zh": "不用等别人写好、也不用自己手写——给个任务描述，capforge 调你的模型合成一个新 skill，几秒就到手。",
+        "en": "No waiting for someone to curate it, no writing it by hand — give capforge the task and it calls your model to synthesize a new Skill in seconds."
+      },
+      "chips": ["› 观察任务上下文", "› 调你自己的模型", "› 写进 ~/.capforge/skills/"]
+    },
+    {
+      "title": {
+        "zh": "没通过测试的 skill，绝不签名",
+        "en": "Never signs a skill that fails its own test"
+      },
+      "body": {
+        "zh": "每条样例都在沙箱里跑一遍；通不过断言的 skill 不会被签名——验证时直接报签名无效。",
+        "en": "Every example runs in a throwaway sandbox with a timeout; a skill that fails its own assertion is never signed — verify reports it as invalid."
+      },
+      "chips": ["› 沙箱 + 超时", "› 逐条样例验证", "› 不合格即拒签"]
+    },
+    {
+      "title": {
+        "zh": "签名覆盖整条记录，改一个字就露馅",
+        "en": "Signature covers the whole record — one edit and it shows"
+      },
+      "body": {
+        "zh": "签名不只盖住 skill 文本，连测试、来源、合成模型一并覆盖；分享出去的 skill 谁也篡改不了来源。",
+        "en": "The signature commits to the skill text AND the full record — test, origin, how it was made — so a shared skill's provenance can't be silently rewritten."
+      },
+      "chips": ["› 离线 ed25519", "› 全记录防篡改", "› 自带可移植来源块"]
+    },
+    {
+      "title": {
+        "zh": "完全本地，自带密钥，不建账号",
+        "en": "Fully local, your own key, no account"
+      },
+      "body": {
+        "zh": "一个二进制、一把本地密钥、用你自己的 API key——不联网、不多用户、不需要登录，锻造完一键装进你的 agent。",
+        "en": "One binary, a local keypair, your own API key — no network, no multi-user, no sign-up. Promote a signed skill into your agent with one click."
+      },
+      "chips": ["› 单二进制", "› 自带 API key", "› 一键装进 Claude Code"]
+    }
+  ],
+  "scene": { "kind": "orbit" },
+  "cta": {
+    "headline": {
+      "zh": "让 agent 自己补上它缺的那块",
+      "en": "Let your agent forge the skill it's missing"
+    },
+    "sub": {
+      "zh": "开源、本地、自带密钥。一条命令开始锻造。",
+      "en": "Open source, local, your own key. One command to start forging."
+    },
+    "button": { "zh": "看 GitHub", "en": "See on GitHub" }
+  },
+  "footer": { "tag": { "zh": "运行时锻造 agent 技能", "en": "Just-in-time capability forge for agentic coding agents" } }
+}
