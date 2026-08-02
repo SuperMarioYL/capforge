@@ -55,3 +55,26 @@ test("runSkillTest: a spec with no script fails fast with no traces", async () =
   assert.equal(r.pass, false);
   assert.equal(r.traces.length, 0);
 });
+
+const hangScript = [
+  "#!/usr/bin/env sh",
+  "trap '' TERM",
+  "while true; do :; done",
+  "",
+].join("\n");
+
+test("runSkillTest (fix-timeout-exit-zero-false-pass): a hung skill times out and is never reported as passing", async () => {
+  // A hanging script with a short timeout. With execa reject:false a timeout
+  // RESOLVES with exitCode===undefined and timedOut===true; the old
+  // `r.exitCode ?? 0` coerced it to exit 0, so an assert keyed on [ "$EXIT" = 0 ]
+  // passed and the skill was signed. The fix maps a timeout to exit 124 and
+  // forces assert_pass=false so a hung skill never passes (m2 gate).
+  const t = task('[ "$EXIT" = 0 ]');
+  const r = await runSkillTest(spec(hangScript), t, { timeoutMs: 800 });
+  assert.equal(r.pass, false, "a timed-out skill must not pass overall");
+  assert.equal(r.traces.length, 2);
+  for (const tr of r.traces) {
+    assert.equal(tr.assert_pass, false, "a timed-out example must fail the assert");
+    assert.equal(tr.exit_code, 124, "a timeout must report exit 124, not 0");
+  }
+});

@@ -1,8 +1,9 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { serve } from "@hono/node-server";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { randomBytes } from "node:crypto";
 import { TaskContextSchema } from "./skill/schema.js";
 import { capforgeHome, loadConfig } from "./observe/intake.js";
 import {
@@ -22,6 +23,29 @@ import { reviewAndPromote } from "./promote/review.js";
  */
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// v0.2.0 (fix-ui-server-no-origin-guard): the forge UI server shell-executes
+// caller-supplied task.expected_assert (POST /api/forge) and writes to a
+// caller-supplied targetDir (POST /api/skills/:id/promote). Without an origin
+// guard, DNS rebinding (which defeats CORS and looks same-origin to the
+// browser) yields arbitrary shell execution as the user. Two lightweight
+// guards (NOT multi-user auth, which v0.1 defers):
+//   1. Host-header allowlist — reject any request whose Host is not a
+//      loopback host (blocks DNS rebinding; the rebinded domain's Host is not
+//      127.0.0.1).
+//   2. Startup secret token — required on state-changing POSTs so a
+//      same-origin hostile page that somehow passed the Host check still
+//      cannot trigger shell exec. Printed at startup; pass via the
+//      x-capforge-secret header or ?capforge_token= query param.
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", ""]);
+
+function hostAllowed(host: string | undefined): boolean {
+  if (!host) return true; // no Host header = direct local request
+  let h = host.toLowerCase();
+  // strip the port from a bracketed ipv6 [::1]:port or a plain host:port
+  h = h.replace(/^\[(.+)\]:\d+$/, "[$1]").replace(/^(.+):(\d+)$/, "$1");
+  return LOOPBACK_HOSTS.has(h);
+}
 
 let htmlCache: string | null = null;
 async function readForgeHtml(): Promise<string> {
@@ -48,16 +72,45 @@ export interface ServerOptions {
   home?: string;
   port?: number;
   host?: string;
+  /** Startup secret required on state-changing POSTs. When set, /api/forge,
+   * /api/skills/:id/verify, and /api/skills/:id/promote require it via the
+   * x-capforge-secret header or ?capforge_token= query param. `startServer`
+   * generates one; tests/dev may omit it (no secret gate fires). */
+  secret?: string;
 }
 
 export function createApp(opts: ServerOptions = {}) {
   const home = opts.home ?? capforgeHome();
+  const secret = opts.secret;
   const app = new Hono();
+
+  // Origin guard: reject any request whose Host header is not a loopback host.
+  app.use("*", async (c, next) => {
+    if (!hostAllowed(c.req.header("host"))) {
+      return c.json({ error: "forbidden: non-loopback Host header" }, 403);
+    }
+    await next();
+  });
+
+  // Secret gate for state-changing endpoints. When a startup secret is set,
+  // POSTs that shell-execute (forge) or write files (promote) — plus verify —
+  // require the token so a same-origin hostile page cannot drive them.
+  const requireSecret: MiddlewareHandler = async (c, next) => {
+    if (secret === undefined) {
+      await next();
+      return;
+    }
+    const token = c.req.header("x-capforge-secret") ?? c.req.query("capforge_token") ?? null;
+    if (token !== secret) {
+      return c.json({ error: "forbidden: missing or invalid capforge secret" }, 403);
+    }
+    await next();
+  };
 
   app.get("/", async (c) => c.html(await readForgeHtml()));
 
   app.get("/api/health", (c) =>
-    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.1.0" }),
+    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.2.0" }),
   );
 
   app.get("/api/skills", async (c) => {
@@ -80,13 +133,13 @@ export function createApp(opts: ServerOptions = {}) {
     });
   });
 
-  app.post("/api/skills/:id/verify", async (c) => {
+  app.post("/api/skills/:id/verify", requireSecret, async (c) => {
     const id = c.req.param("id");
     const v = await verifySkill(id, home);
     return c.json(v);
   });
 
-  app.post("/api/forge", async (c) => {
+  app.post("/api/forge", requireSecret, async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return c.json({ error: "expected a JSON body: { task, mock?, provider?, model? }" }, 400);
@@ -105,7 +158,7 @@ export function createApp(opts: ServerOptions = {}) {
     return c.json(result);
   });
 
-  app.post("/api/skills/:id/promote", async (c) => {
+  app.post("/api/skills/:id/promote", requireSecret, async (c) => {
     const id = c.req.param("id");
     const body = await c.req.json().catch(() => ({}));
     const targetDir = typeof body.targetDir === "string" ? body.targetDir : undefined;
@@ -119,13 +172,21 @@ export function createApp(opts: ServerOptions = {}) {
 
 export async function startServer(opts: ServerOptions = {}): Promise<{
   port: number;
+  secret: string;
   close: () => Promise<void>;
 }> {
   const port = opts.port ?? 7777;
   const host = opts.host ?? "127.0.0.1";
-  const server = serve({ fetch: createApp(opts).fetch, port, hostname: host });
+  const secret = opts.secret ?? randomBytes(16).toString("hex");
+  const server = serve({ fetch: createApp({ ...opts, secret }).fetch, port, hostname: host });
+  const url = `http://${host}:${port}/?capforge_token=${secret}`;
+  // Print the secret-bearing URL so the user opens the UI with the token baked
+  // in. State-changing POSTs also accept the x-capforge-secret header.
+  console.error(`capforge ui: ${url}`);
+  console.error(`  (Host must be ${host}; pass x-capforge-secret header or ?capforge_token= for POSTs)`);
   return {
     port,
+    secret,
     close: () =>
       new Promise<void>((resolve) => {
         server.close(() => resolve());

@@ -81,3 +81,71 @@ test("GET /api/skills lists forged skills; promote writes to the target dir", as
     await cleanup(target);
   }
 });
+
+// v0.2.0 fix-ui-server-no-origin-guard: the forge UI server shell-executes
+// caller-supplied task.expected_assert (POST /api/forge) and writes to a
+// caller-supplied targetDir (POST /api/skills/:id/promote). Without an origin
+// guard, DNS rebinding (which defeats CORS and looks same-origin) yields
+// arbitrary shell execution. Two lightweight guards: Host allowlist (blocks
+// DNS rebinding) + startup secret on state-changing POSTs.
+
+test("origin guard: a non-loopback Host header is rejected with 403", async () => {
+  const home = await mkHome();
+  try {
+    const res = await app(home).request("/api/health", {
+      headers: { host: "evil.example.com" },
+    });
+    assert.equal(res.status, 403);
+  } finally {
+    await cleanup(home);
+  }
+});
+
+test("origin guard: a loopback Host is allowed", async () => {
+  const home = await mkHome();
+  try {
+    const res = await app(home).request("/api/health", {
+      headers: { host: "127.0.0.1" },
+    });
+    assert.equal(res.status, 200);
+  } finally {
+    await cleanup(home);
+  }
+});
+
+test("secret gate: POST /api/forge without the secret is rejected 403 when a secret is set", async () => {
+  const home = await mkHome();
+  try {
+    const a = createApp({ home, secret: "s3cret" });
+    const res = await a.request("/api/forge", {
+      method: "POST",
+      headers: { "content-type": "application/json", host: "127.0.0.1" },
+      body: JSON.stringify({ task: slugifyTask, mock: true }),
+    });
+    assert.equal(res.status, 403);
+  } finally {
+    await cleanup(home);
+  }
+});
+
+test("secret gate: POST /api/forge with the correct secret runs the forge loop", async () => {
+  const home = await mkHome();
+  try {
+    await loadOrCreateKeypair(keysDir(home));
+    const a = createApp({ home, secret: "s3cret" });
+    const res = await a.request("/api/forge", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        host: "127.0.0.1",
+        "x-capforge-secret": "s3cret",
+      },
+      body: JSON.stringify({ task: slugifyTask, mock: true }),
+    });
+    assert.equal(res.status, 200);
+    const j: any = await res.json();
+    assert.equal(j.signed, true);
+  } finally {
+    await cleanup(home);
+  }
+});

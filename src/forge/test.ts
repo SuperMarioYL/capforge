@@ -65,6 +65,13 @@ async function runOne(
   let exit_code = 0;
   let stdout = "";
   let stderr = "";
+  // v0.2.0 (fix-timeout-exit-zero-false-pass): execa with reject:false makes a
+  // timeout RESOLVE (not reject) — r.timedOut===true and r.exitCode===undefined.
+  // The old `r.exitCode ?? 0` coerced a hung skill to exit 0, so the assert
+  // passed, test.pass became true, and the skill was signed — defeating the m2
+  // "never sign a failing skill" gate. Track the timeout and force the assert to
+  // fail below so a timed-out example is never reported as passing.
+  let timed_out = false;
 
   try {
     const r = await execa(scriptPath, [input], {
@@ -73,36 +80,45 @@ async function runOne(
       reject: false,
       shell: false,
     });
-    exit_code = r.exitCode ?? 0;
+    timed_out = r.timedOut === true;
+    exit_code = timed_out ? 124 : (r.exitCode ?? 0);
     stdout = r.stdout ?? "";
     stderr = r.stderr ?? "";
   } catch (e) {
     const err = e as { exitCode?: number; stdout?: string; stderr?: string; message?: string; timedOut?: boolean };
-    exit_code = err.timedOut ? 124 : (err.exitCode ?? 1);
+    timed_out = err.timedOut === true;
+    exit_code = timed_out ? 124 : (err.exitCode ?? 1);
     stdout = err.stdout ?? "";
-    stderr = (err.stderr ?? "") + (err.timedOut ? "\n[timeout]" : `\n${err.message ?? ""}`);
+    stderr = (err.stderr ?? "") + (timed_out ? "\n[timeout]" : `\n${err.message ?? ""}`);
   }
 
   let assert_pass = false;
-  try {
-    const a = await execa(assertExpr, [], {
-      cwd,
-      shell: true,
-      timeout: timeoutMs,
-      reject: false,
-      env: {
-        ...process.env,
-        INPUT: input,
-        OUTPUT: stdout,
-        EXIT: String(exit_code),
-      },
-    });
-    assert_pass = a.exitCode === 0;
-    if (!assert_pass && (a.stderr || a.stdout)) {
-      stderr += `\n[assert] ${(a.stderr || a.stdout).trim()}`;
-    }
-  } catch {
+  // A timed-out run must never pass, regardless of what the caller-supplied
+  // expected_assert would decide on EXIT=124 — force failure and skip the assert
+  // run so a hung skill is never signed.
+  if (timed_out) {
     assert_pass = false;
+  } else {
+    try {
+      const a = await execa(assertExpr, [], {
+        cwd,
+        shell: true,
+        timeout: timeoutMs,
+        reject: false,
+        env: {
+          ...process.env,
+          INPUT: input,
+          OUTPUT: stdout,
+          EXIT: String(exit_code),
+        },
+      });
+      assert_pass = a.exitCode === 0;
+      if (!assert_pass && (a.stderr || a.stdout)) {
+        stderr += `\n[assert] ${(a.stderr || a.stdout).trim()}`;
+      }
+    } catch {
+      assert_pass = false;
+    }
   }
 
   return { input, exit_code, stdout, stderr, assert_pass };

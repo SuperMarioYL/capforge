@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { forge, verifySkill, listForgedSkills, splitProvenance } from "../src/forge/provenance.js";
 import { loadOrCreateKeypair } from "../src/forge/sign.js";
@@ -71,6 +71,67 @@ test("tamper-evidence: editing the signed SKILL.md body breaks verify", async ()
     const after = await verifySkill(r.id, home);
     assert.equal(after.sig_valid, false, "tampering the body must invalidate the signature");
     assert.equal(after.signed, true, "the provenance block still parses (signed=true), but sig is invalid");
+  } finally {
+    await cleanup(home);
+  }
+});
+
+test("fix-signature-skips-provenance-record: tampering the embedded test.pass breaks verify", async () => {
+  const home = await mkHome();
+  try {
+    await loadOrCreateKeypair(keysDir(home));
+    const r = await forge(slugifyTask, { provider: "auto", model: null }, { home, mock: true });
+    const skillPath = join(skillDir(r.id, home), "SKILL.md");
+    const original = await readFile(skillPath, "utf8");
+    assert.equal((await verifySkill(r.id, home)).sig_valid, true, "baseline valid before tamper");
+
+    // v0.2.0: the signature now commits to the full record (incl. test.pass),
+    // so flipping test.pass true->false in the embedded JSON must invalidate
+    // it. (Previously only skillMd was signed, so this tamper kept sig_valid.)
+    const tampered = original.replace(
+      '"pass": true',
+      '"pass": false',
+    );
+    // only mutate if the string actually appears (mock test has pass:true)
+    if (tampered !== original) {
+      await writeFile(skillPath, tampered, "utf8");
+      const after = await verifySkill(r.id, home);
+      assert.equal(after.sig_valid, false, "tampering test.pass must invalidate the signature");
+    }
+  } finally {
+    await cleanup(home);
+  }
+});
+
+test("fix-list-corrupt-provenance-blast-radius: one corrupt skill dir does not break listForgedSkills", async () => {
+  const home = await mkHome();
+  try {
+    await loadOrCreateKeypair(keysDir(home));
+    // a healthy forged skill
+    const good = await forge(slugifyTask, { provider: "auto", model: null }, { home, mock: true });
+
+    // a corrupt sibling: a half-written SKILL.md whose provenance block is
+    // malformed JSON (e.g. process killed mid-forge). splitProvenance throws
+    // on this; listForgedSkills must catch it and keep listing the rest.
+    const corruptId = "corrupt-skill-deadbeef";
+    const corruptDir = skillDir(corruptId, home);
+    await mkdir(corruptDir, { recursive: true });
+    await writeFile(
+      join(corruptDir, "SKILL.md"),
+      "---\nname: broken\ndescription: d\ntools: []\n---\n\n## impl\n\nbroken\n\n" +
+        "<!-- capforge:provenance -->\n{not valid json}\n<!-- /capforge:provenance -->\n",
+      "utf8",
+    );
+
+    // must not throw — returns both the good (signed) and the corrupt entry
+    const list = await listForgedSkills(home);
+    const ids = list.map((s) => s.id);
+    assert.ok(ids.includes(good.id), "the healthy skill is still listed");
+    assert.ok(ids.includes(corruptId), "the corrupt skill is listed as a corrupt entry");
+    const corrupt = list.find((s) => s.id === corruptId)!;
+    assert.equal(corrupt.signed, false);
+    assert.equal(corrupt.sig_valid, false);
+    assert.equal(corrupt.test_pass, false);
   } finally {
     await cleanup(home);
   }
