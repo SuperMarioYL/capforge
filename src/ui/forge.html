@@ -241,6 +241,17 @@
       const $ = (id) => document.getElementById(id);
       const SAMPLE = $("task").value;
 
+      // v0.3.0 (fix-ui-secret-not-threaded): the local forge server requires a
+      // startup secret on every state-changing POST (forge / verify / promote).
+      // cmdUi opens the UI with ?capforge_token=<secret>; read it here and send
+      // it as x-capforge-secret so the browser flow is not 403-ed. (GET paths
+      // like /api/skills and /api/skills/:id need no token.)
+      const TOKEN = new URLSearchParams(location.search).get("capforge_token");
+      const jsonHeaders = {
+        "content-type": "application/json",
+        ...(TOKEN ? { "x-capforge-secret": TOKEN } : {}),
+      };
+
       function badge(ok, label) {
         return `<span class="badge ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"} ${label}</span>`;
       }
@@ -296,7 +307,7 @@
       async function promoteSkill(id) {
         const r = await fetch(`/api/skills/${encodeURIComponent(id)}/promote`, {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: jsonHeaders,
           body: "{}",
         });
         const j = await r.json();
@@ -316,7 +327,7 @@
         try {
           const r = await fetch("/api/forge", {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            headers: jsonHeaders,
             body: JSON.stringify({ task: JSON.parse(task), mock: !useLLM }),
           });
           const j = await r.json();

@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { forge, verifySkill, listForgedSkills, splitProvenance } from "../src/forge/provenance.js";
+import { reviewAndPromote } from "../src/promote/review.js";
 import { loadOrCreateKeypair } from "../src/forge/sign.js";
 import { keysDir, skillDir } from "../src/observe/intake.js";
-import { slugifyTask, failingTask, mkHome, cleanup } from "./util.js";
+import { slugifyTask, failingTask, mkHome, mkClaudeTarget, cleanup } from "./util.js";
 
 test("m1+m2 happy path: mock forge -> verify reports test-pass + signature-valid", async () => {
   const home = await mkHome();
@@ -134,5 +135,43 @@ test("fix-list-corrupt-provenance-blast-radius: one corrupt skill dir does not b
     assert.equal(corrupt.test_pass, false);
   } finally {
     await cleanup(home);
+  }
+});
+
+// v0.3.0 fix-verify-corrupt-provenance-crash: the v0.2.0 corrupt-provenance
+// guard covered listForgedSkills only. verifySkill (and the promote path, which
+// calls verifySkill) still called splitProvenance unguarded, so one corrupt
+// SKILL.md crashed `capforge verify` / `capforge promote` / the detail API.
+// They are now guarded — assert they degrade to a non-throwing invalid result.
+test("fix-verify-corrupt-provenance-crash: verifySkill + promote do not throw on a corrupt SKILL.md", async () => {
+  const home = await mkHome();
+  const target = await mkClaudeTarget();
+  try {
+    await loadOrCreateKeypair(keysDir(home));
+    // a corrupt skill dir (malformed provenance JSON — process killed mid-forge)
+    const corruptId = "corrupt-verify-deadbeef";
+    const corruptDir = skillDir(corruptId, home);
+    await mkdir(corruptDir, { recursive: true });
+    await writeFile(
+      join(corruptDir, "SKILL.md"),
+      "---\nname: broken\ndescription: d\ntools: []\n---\n\n## impl\n\nbroken\n\n" +
+        "<!-- capforge:provenance -->\n{not valid json}\n<!-- /capforge:provenance -->\n",
+      "utf8",
+    );
+
+    // verifySkill must NOT throw — returns a non-throwing invalid result
+    const v = await verifySkill(corruptId, home);
+    assert.equal(v.signed, false);
+    assert.equal(v.sig_valid, false);
+    assert.equal(v.record, null);
+
+    // promote calls verifySkill internally; it must refuse (not throw) since the
+    // skill is corrupt/unsigned
+    const r = await reviewAndPromote(corruptId, { home, targetDir: target });
+    assert.equal(r.promoted, false);
+    assert.equal(r.signed, false);
+  } finally {
+    await cleanup(home);
+    await cleanup(target);
   }
 });

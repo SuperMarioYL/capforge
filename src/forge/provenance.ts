@@ -249,7 +249,30 @@ export async function verifySkill(
   home = capforgeHome(),
 ): Promise<VerifyResult> {
   const text = await readForgedSkillText(id, home);
-  const { skillMd, record } = splitProvenance(text);
+  // v0.3.0 (fix-verify-corrupt-provenance-crash): mirror the listForgedSkills
+  // guard — a half-written SKILL.md whose provenance block is malformed JSON
+  // (process killed mid-forge) makes splitProvenance throw ZodError/SyntaxError.
+  // Surface it as a non-throwing invalid result so `capforge verify`, the
+  // detail API, and the promote path (which calls verifySkill) no longer crash
+  // on one corrupt skill directory — the same blast-radius guarantee the v0.2.0
+  // fix gave listForgedSkills.
+  let skillMd = "";
+  let record: ForgeRecord | null = null;
+  try {
+    const split = splitProvenance(text);
+    skillMd = split.skillMd;
+    record = split.record;
+  } catch {
+    const tr = await readTestResult(id, home);
+    return {
+      id,
+      signed: false,
+      test_pass: tr?.pass ?? false,
+      sig_valid: false,
+      record: null,
+      pubkey: null,
+    };
+  }
   if (!record) {
     const tr = await readTestResult(id, home);
     return {

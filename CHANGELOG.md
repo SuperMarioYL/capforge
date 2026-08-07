@@ -4,6 +4,16 @@ All notable changes to capforge are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-07
+
+### Fixed
+- **Forge UI browser flow no longer 403-ed against the startup secret** — v0.2.0's origin guard made `startServer` always generate a startup secret required on every state-changing POST (`/api/forge`, `/api/skills/:id/verify`, `/api/skills/:id/promote`), but `cmdUi` (`src/index.ts`) opened a tokenless URL and the frontend (`src/ui/forge.html`) sent no `x-capforge-secret` header and never read `?capforge_token=` — so from the browser every forge/verify/promote returned `403 forbidden: missing or invalid capforge secret` and the m3 "click Promote" demo was broken end-to-end. `cmdUi` now opens `http://127.0.0.1:<port>/?capforge_token=<secret>` and `forge.html` reads the token from `location.search` and sends it as `x-capforge-secret` on the forge + promote POSTs. (`src/index.ts`, `src/ui/forge.html`)
+- **One corrupt provenance block no longer crashes `verify` / `promote` / the detail API** — v0.2.0's corrupt-provenance guard wrapped `splitProvenance` in try/catch only inside `listForgedSkills`, so a malformed `<!-- capforge:provenance -->` block (e.g. a half-written `SKILL.md` from a process killed mid-forge) still crashed `capforge verify`, `capforge promote`, the `GET /api/skills/:id` detail endpoint, and the promote API — the same blast radius the v0.2.0 fix meant to close. `splitProvenance` is now guarded in `verifySkill` (returns a non-throwing invalid result) and in the detail endpoint (returns a 422 corrupt marker); `reviewAndPromote` degrades gracefully because it calls `verifySkill`. (`src/forge/provenance.ts`, `src/server.ts`, `src/promote/review.ts`)
+
+### Changed
+- Bumped the forge protocol version (`FORGE_VERSION`) stamped into every `ForgeRecord.provenance` to `0.3.0`.
+- Package version `0.2.0` → `0.3.0`.
+
 ## [0.2.0] - 2026-08-03
 
 ### Fixed

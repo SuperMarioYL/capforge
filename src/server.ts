@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
-import { TaskContextSchema } from "./skill/schema.js";
+import { TaskContextSchema, type ForgeRecord } from "./skill/schema.js";
 import { capforgeHome, loadConfig } from "./observe/intake.js";
 import {
   forge,
@@ -110,7 +110,7 @@ export function createApp(opts: ServerOptions = {}) {
   app.get("/", async (c) => c.html(await readForgeHtml()));
 
   app.get("/api/health", (c) =>
-    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.2.0" }),
+    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.3.0" }),
   );
 
   app.get("/api/skills", async (c) => {
@@ -121,8 +121,35 @@ export function createApp(opts: ServerOptions = {}) {
   app.get("/api/skills/:id", async (c) => {
     const id = c.req.param("id");
     const text = await readForgedSkillText(id, home);
-    const { skillMd, record } = splitProvenance(text);
+    // v0.3.0 (fix-verify-corrupt-provenance-crash): guard splitProvenance so a
+    // corrupt provenance block returns a 422 corrupt marker instead of 500-ing
+    // — the listForgedSkills path was guarded in v0.2.0; this per-skill detail
+    // endpoint was not. verifySkill (called below) is now guarded too.
+    let skillMd = "";
+    let record: ForgeRecord | null = null;
+    let corrupt = false;
+    try {
+      const split = splitProvenance(text);
+      skillMd = split.skillMd;
+      record = split.record;
+    } catch {
+      corrupt = true;
+    }
     const v = await verifySkill(id, home);
+    if (corrupt) {
+      return c.json(
+        {
+          id,
+          corrupt: true,
+          skillMd: "",
+          record: null,
+          signed: false,
+          sig_valid: false,
+          test_pass: v.test_pass,
+        },
+        422,
+      );
+    }
     return c.json({
       id,
       skillMd,
