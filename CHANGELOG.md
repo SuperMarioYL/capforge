@@ -4,6 +4,16 @@ All notable changes to capforge are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-08-23
+
+### Fixed
+- **Path-traversal read of arbitrary `SKILL.md` via `GET /api/skills/:id`** — the `:id` path param flowed unvalidated into `skillDir(id, home) = join(home, "skills", id)`. Hono decodes `%2F`, so a `../`-encoded id (`GET /api/skills/..%2F..%2F.claude%2Fskills%2Fvictim`) escaped the capforge store via `path.join`'s normalization, and the tokenless detail endpoint returned a foreign `SKILL.md` with `200`. The same unvalidated `id` also drove the secret-gated `POST /api/skills/:id/promote` write path (`reviewAndPromote -> join(targetDir, id)`), so the read traversal was a write-traversal precondition. The id is now shape-checked (`/^[a-z0-9-]+-[0-9a-f]{8}$/`, the `deriveSkillId` contract) at the server boundary before lookup on `GET /api/skills/:id`, `POST /api/skills/:id/verify`, and `POST /api/skills/:id/promote`, closing both the read traversal and the promote write traversal for one version bump. (`src/observe/intake.ts`, `src/server.ts`)
+- **Startup secret no longer leaked in the opener argv** — `cmdUi` built `http://127.0.0.1:<port>/?capforge_token=<secret>` and ran `exec(opener + " " + url)`, putting the 128-bit startup secret in the `open`/`xdg-open` process argv, which is world-readable via `ps` on shared/multi-user hosts. A second local user who read it could drive the secret-gated `POST /api/forge` (shell-exec of caller-supplied `task.expected_assert`) and `POST /api/skills/:id/promote` (writes a `SKILL.md` to a caller-supplied `targetDir`) as the victim — exactly the shell-exec/file-write surface the v0.2.0 origin-guard closed. The opener now receives a tokenless `http://127.0.0.1:<port>/`, and the browser receives the secret via an `HttpOnly` + `SameSite=Strict` `capforge_token` cookie set on `GET /` (read by `requireSecret`). The token-bearing URL is still printed to the user's own terminal for non-browser use, but never as an opener argv. (`src/server.ts`, `src/index.ts`)
+
+### Changed
+- Bumped the forge protocol version (`FORGE_VERSION`) stamped into every `ForgeRecord.provenance` to `0.4.0`.
+- Package version `0.3.0` → `0.4.0`.
+
 ## [0.3.0] - 2026-08-07
 
 ### Fixed

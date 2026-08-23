@@ -1,11 +1,12 @@
 import { Hono, type MiddlewareHandler } from "hono";
+import { getCookie, setCookie } from "hono/cookie";
 import { serve } from "@hono/node-server";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { TaskContextSchema, type ForgeRecord } from "./skill/schema.js";
-import { capforgeHome, loadConfig } from "./observe/intake.js";
+import { capforgeHome, loadConfig, validSkillId } from "./observe/intake.js";
 import {
   forge,
   listForgedSkills,
@@ -94,23 +95,47 @@ export function createApp(opts: ServerOptions = {}) {
 
   // Secret gate for state-changing endpoints. When a startup secret is set,
   // POSTs that shell-execute (forge) or write files (promote) — plus verify —
-  // require the token so a same-origin hostile page cannot drive them.
+  // require the token so a same-origin hostile page cannot drive them. The
+  // token is accepted via the x-capforge-secret header, the ?capforge_token=
+  // query (CLI/curl), or the capforge_token cookie (browser — v0.4.0).
   const requireSecret: MiddlewareHandler = async (c, next) => {
     if (secret === undefined) {
       await next();
       return;
     }
-    const token = c.req.header("x-capforge-secret") ?? c.req.query("capforge_token") ?? null;
+    const token =
+      c.req.header("x-capforge-secret") ??
+      c.req.query("capforge_token") ??
+      getCookie(c, "capforge_token") ??
+      null;
     if (token !== secret) {
       return c.json({ error: "forbidden: missing or invalid capforge secret" }, 403);
     }
     await next();
   };
 
-  app.get("/", async (c) => c.html(await readForgeHtml()));
+  // v0.4.0 (fix-ui-secret-leaked-in-opener-argv): deliver the startup secret
+  // to the browser via an HttpOnly + SameSite=Strict cookie instead of putting
+  // it in the opener argv (?capforge_token= was world-readable via ps on
+  // shared hosts, re-opening the shell-exec/file-write surface the v0.2.0
+  // origin-guard closed). The browser opens a tokenless
+  // http://127.0.0.1:<port>/; this cookie is what requireSecret reads on the
+  // browser's same-origin POSTs. HttpOnly blocks JS exfiltration; SameSite=
+  // Strict keeps the v0.2.0 cross-origin CSRF defense (a hostile cross-site
+  // page cannot ride the cookie onto a state-changing POST).
+  app.get("/", async (c) => {
+    if (secret !== undefined) {
+      setCookie(c, "capforge_token", secret, {
+        httpOnly: true,
+        sameSite: "Strict",
+        path: "/",
+      });
+    }
+    return c.html(await readForgeHtml());
+  });
 
   app.get("/api/health", (c) =>
-    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.3.0" }),
+    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.4.0" }),
   );
 
   app.get("/api/skills", async (c) => {
@@ -120,6 +145,14 @@ export function createApp(opts: ServerOptions = {}) {
 
   app.get("/api/skills/:id", async (c) => {
     const id = c.req.param("id");
+    // v0.4.0 (fix-skill-id-path-traversal-read): reject a non-skill id before
+    // lookup. Hono decodes %2F, so an unvalidated `../`-encoded id escaped the
+    // capforge store via skillDir=join(home,"skills",id) — a path-traversal
+    // read of arbitrary SKILL.md here. The same guard closes the
+    // secret-gated promote write path below.
+    if (!validSkillId(id)) {
+      return c.json({ error: "invalid skill id" }, 400);
+    }
     const text = await readForgedSkillText(id, home);
     // v0.3.0 (fix-verify-corrupt-provenance-crash): guard splitProvenance so a
     // corrupt provenance block returns a 422 corrupt marker instead of 500-ing
@@ -162,6 +195,9 @@ export function createApp(opts: ServerOptions = {}) {
 
   app.post("/api/skills/:id/verify", requireSecret, async (c) => {
     const id = c.req.param("id");
+    if (!validSkillId(id)) {
+      return c.json({ error: "invalid skill id" }, 400);
+    }
     const v = await verifySkill(id, home);
     return c.json(v);
   });
@@ -187,6 +223,9 @@ export function createApp(opts: ServerOptions = {}) {
 
   app.post("/api/skills/:id/promote", requireSecret, async (c) => {
     const id = c.req.param("id");
+    if (!validSkillId(id)) {
+      return c.json({ error: "invalid skill id" }, 400);
+    }
     const body = await c.req.json().catch(() => ({}));
     const targetDir = typeof body.targetDir === "string" ? body.targetDir : undefined;
     const force = body.force === true ? true : undefined;
@@ -197,23 +236,40 @@ export function createApp(opts: ServerOptions = {}) {
   return app;
 }
 
+/**
+ * v0.4.0 (fix-ui-secret-leaked-in-opener-argv): the URL handed to the opener
+ * (open/xdg-open) MUST be tokenless — process argv is world-readable via `ps`
+ * on shared hosts, so the 128-bit startup secret must never appear in it. The
+ * token-bearing URL is only for the user's own terminal (printed by startServer
+ * and cmdUi); the browser receives the secret via an HttpOnly cookie on GET /.
+ */
+export function openerUrl(host: string, port: number): string {
+  return `http://${host}:${port}/`;
+}
+
 export async function startServer(opts: ServerOptions = {}): Promise<{
   port: number;
   secret: string;
+  /** Tokenless URL for the opener argv (never contains the secret). */
+  openerUrl: string;
   close: () => Promise<void>;
 }> {
   const port = opts.port ?? 7777;
   const host = opts.host ?? "127.0.0.1";
   const secret = opts.secret ?? randomBytes(16).toString("hex");
   const server = serve({ fetch: createApp({ ...opts, secret }).fetch, port, hostname: host });
-  const url = `http://${host}:${port}/?capforge_token=${secret}`;
-  // Print the secret-bearing URL so the user opens the UI with the token baked
-  // in. State-changing POSTs also accept the x-capforge-secret header.
-  console.error(`capforge ui: ${url}`);
-  console.error(`  (Host must be ${host}; pass x-capforge-secret header or ?capforge_token= for POSTs)`);
+  const open = openerUrl(host, port);
+  // Print the secret-bearing URL to the user's own terminal (stderr) for
+  // non-browser use (curl, etc.); the browser gets the secret via the HttpOnly
+  // capforge_token cookie set on GET / instead of this URL in the opener argv.
+  console.error(`capforge ui: ${open}?capforge_token=${secret}`);
+  console.error(
+    `  (Host must be ${host}; browser uses the HttpOnly capforge_token cookie; CLI/curl uses ?capforge_token= or x-capforge-secret)`,
+  );
   return {
     port,
     secret,
+    openerUrl: open,
     close: () =>
       new Promise<void>((resolve) => {
         server.close(() => resolve());

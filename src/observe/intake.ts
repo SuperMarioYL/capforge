@@ -39,6 +39,21 @@ export function skillsDir(home = capforgeHome()): string {
 export function skillDir(id: string, home = capforgeHome()): string {
   return join(skillsDir(home), id);
 }
+
+// v0.4.0 (fix-skill-id-path-traversal-read): the `:id` path param on
+// GET /api/skills/:id (and the secret-gated verify/promote POSTs) flows into
+// skillDir(id, home) = join(skillsDir(home), id). Hono decodes %2F, so an
+// unvalidated `../`-encoded id escaped the capforge store via path.join's
+// normalization — a path-traversal read of arbitrary SKILL.md, and a
+// write-traversal precondition for the secret-gated promote path. Reject any
+// id that is not a real skill id before lookup. deriveSkillId produces
+// `<slug>-<sha8>` (lowercase a-z0-9 + hyphens, then a `-` and 8 hex), so this
+// shape is the contract every forged id satisfies; a traversal payload
+// (containing `/` or `.`) never matches.
+const SKILL_ID_RE = /^[a-z0-9-]+-[0-9a-f]{8}$/;
+export function validSkillId(id: string): boolean {
+  return SKILL_ID_RE.test(id);
+}
 export function configPath(home = capforgeHome()): string {
   return join(home, "config.json");
 }

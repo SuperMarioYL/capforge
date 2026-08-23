@@ -31,7 +31,7 @@ import { startServer } from "./server.js";
  * is smaller and more transparent than pulling in a parser.
  */
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 
 function usage(): string {
   return [
@@ -227,19 +227,21 @@ async function cmdUi(args: string[]): Promise<number> {
       port = parseInt(args[++i], 10);
     }
   }
-  // v0.3.0 (fix-ui-secret-not-threaded): startServer always generates a
-  // startup secret required on every state-changing POST. Open the
-  // token-bearing URL (?capforge_token=<secret>) so the browser has the
-  // token, which forge.html reads and sends as x-capforge-secret on
-  // forge/verify/promote POSTs. Previously cmdUi opened a tokenless URL and
-  // the frontend sent no secret header, so every browser POST 403-ed.
-  const { port: actual, secret } = await startServer({ port });
-  const url = `http://127.0.0.1:${actual}/?capforge_token=${secret}`;
-  console.log("capforge forge UI: " + url);
+  // v0.4.0 (fix-ui-secret-leaked-in-opener-argv): startServer always
+  // generates a startup secret required on every state-changing POST. v0.3.0
+  // threaded it through the opened URL (?capforge_token=<secret>), but that put
+  // the 128-bit secret in the open/xdg-open argv — world-readable via ps on
+  // shared hosts, re-opening the shell-exec/file-write surface the v0.2.0
+  // origin-guard closed. The opener now receives a TOKENLESS URL and the
+  // browser gets the secret via an HttpOnly cookie set on GET / (read by
+  // requireSecret). The token-bearing URL is still printed to the user's own
+  // terminal for non-browser use, but never as an opener argv.
+  const { secret, openerUrl } = await startServer({ port });
+  console.log("capforge forge UI: " + openerUrl + "?capforge_token=" + secret);
   console.log("  promote target: " + claudeSkillsDir());
-  console.log("  (Ctrl-C to stop)");
+  console.log("  (Ctrl-C to stop; the browser gets the secret via an HttpOnly cookie)");
   const opener = process.platform === "darwin" ? "open" : "xdg-open";
-  exec(opener + " " + url, () => {
+  exec(opener + " " + openerUrl, () => {
     /* best-effort; ignore errors */
   });
   // run until killed
