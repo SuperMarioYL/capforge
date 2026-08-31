@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, access } from "node:fs/promises";
 import { join } from "node:path";
 import { forge, verifySkill, listForgedSkills, splitProvenance } from "../src/forge/provenance.js";
 import { reviewAndPromote } from "../src/promote/review.js";
@@ -165,11 +165,48 @@ test("fix-verify-corrupt-provenance-crash: verifySkill + promote do not throw on
     assert.equal(v.sig_valid, false);
     assert.equal(v.record, null);
 
+  // promote calls verifySkill internally; it must refuse (not throw) since the
+  // skill is corrupt/unsigned
+  const r = await reviewAndPromote(corruptId, { home, targetDir: target });
+  assert.equal(r.promoted, false);
+  assert.equal(r.signed, false);
+  } finally {
+    await cleanup(home);
+    await cleanup(target);
+  }
+});
+
+// v0.5.0 fix-verify-missing-skillmd-crash: the v0.3.0 corrupt-provenance guard
+// wrapped splitProvenance but not the upstream readForgedSkillText readFile
+// (provenance.ts:251), so a skill dir with NO SKILL.md (forge killed mid-write
+// after mkdir, or an external deletion) threw ENOENT and crashed
+// `capforge verify` / `capforge promote` (which calls verifySkill). The read
+// is now guarded — assert verifySkill + promote degrade to a non-throwing
+// invalid result instead of throwing.
+test("fix-verify-missing-skillmd-crash: verifySkill + promote do not throw on a skill dir with no SKILL.md", async () => {
+  const home = await mkHome();
+  const target = await mkClaudeTarget();
+  try {
+    await loadOrCreateKeypair(keysDir(home));
+    // a skill dir created (mkdir done) but with NO SKILL.md — the exact state
+    // a forge process killed mid-write after mkdir leaves, or an external deletion
+    const missingId = "missing-skill-deadbeef";
+    await mkdir(skillDir(missingId, home), { recursive: true });
+
+    // verifySkill must NOT throw — returns a non-throwing invalid result
+    const v = await verifySkill(missingId, home);
+    assert.equal(v.signed, false);
+    assert.equal(v.sig_valid, false);
+    assert.equal(v.record, null);
+    assert.equal(v.test_pass, false);
+
     // promote calls verifySkill internally; it must refuse (not throw) since the
-    // skill is corrupt/unsigned
-    const r = await reviewAndPromote(corruptId, { home, targetDir: target });
+    // skill dir has no readable SKILL.md
+    const r = await reviewAndPromote(missingId, { home, targetDir: target });
     assert.equal(r.promoted, false);
     assert.equal(r.signed, false);
+    // nothing was written to the target
+    await assert.rejects(() => access(join(target, missingId, "SKILL.md")));
   } finally {
     await cleanup(home);
     await cleanup(target);

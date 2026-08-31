@@ -10,6 +10,7 @@ import {
   loadConfig,
   saveConfig,
   skillsDir,
+  validSkillId,
 } from "./observe/intake.js";
 import { loadOrCreateKeypair } from "./forge/sign.js";
 import {
@@ -31,7 +32,7 @@ import { startServer } from "./server.js";
  * is smaller and more transparent than pulling in a parser.
  */
 
-const VERSION = "0.4.0";
+const VERSION = "0.5.0";
 
 function usage(): string {
   return [
@@ -180,6 +181,16 @@ async function cmdVerify(args: string[]): Promise<number> {
     console.error("verify: <id> required");
     return 2;
   }
+  // v0.5.0 (fix-cli-skill-id-traversal): v0.4.0 added validSkillId at the HTTP
+  // handler boundary but the CLI commands passed args[0] straight to verifySkill
+  // / reviewAndPromote, which read/write via skillDir=join(skillsDir(home),id);
+  // path.join normalizes "..", so a traversal id read/wrote outside the store.
+  // Reject a non-skill id at the CLI entry point too, completing the v0.4.0
+  // guard across every entry point.
+  if (!validSkillId(id)) {
+    console.error("verify: invalid skill id: " + id);
+    return 2;
+  }
   const v = await verifySkill(id, capforgeHome());
   console.log("skill:       " + v.id);
   console.log("  signed:        " + (v.signed ? "yes" : "no"));
@@ -207,6 +218,14 @@ async function cmdPromote(args: string[]): Promise<number> {
   const id = args[0];
   if (!id) {
     console.error("promote: <id> required");
+    return 2;
+  }
+  // v0.5.0 (fix-cli-skill-id-traversal): mirror cmdVerify — reject a non-skill
+  // id before it reaches reviewAndPromote's read/write path
+  // (join(targetDir, id, "SKILL.md")), closing the CLI traversal the v0.4.0
+  // server-side guard left open.
+  if (!validSkillId(id)) {
+    console.error("promote: invalid skill id: " + id);
     return 2;
   }
   const force = args.includes("--force");

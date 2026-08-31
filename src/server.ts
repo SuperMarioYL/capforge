@@ -135,7 +135,7 @@ export function createApp(opts: ServerOptions = {}) {
   });
 
   app.get("/api/health", (c) =>
-    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.4.0" }),
+    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.5.0" }),
   );
 
   app.get("/api/skills", async (c) => {
@@ -153,7 +153,28 @@ export function createApp(opts: ServerOptions = {}) {
     if (!validSkillId(id)) {
       return c.json({ error: "invalid skill id" }, 400);
     }
-    const text = await readForgedSkillText(id, home);
+    // v0.5.0 (fix-verify-missing-skillmd-crash): guard the read so a skill dir
+    // with no SKILL.md (forge killed mid-write after mkdir, or external
+    // deletion) returns a 404 missing-marker instead of 500-ing — the v0.3.0
+    // corrupt-provenance guard wrapped splitProvenance but not this upstream
+    // read, so the missing-file case still escaped the guard.
+    let text: string;
+    try {
+      text = await readForgedSkillText(id, home);
+    } catch {
+      return c.json(
+        {
+          id,
+          missing: true,
+          skillMd: "",
+          record: null,
+          signed: false,
+          sig_valid: false,
+          test_pass: false,
+        },
+        404,
+      );
+    }
     // v0.3.0 (fix-verify-corrupt-provenance-crash): guard splitProvenance so a
     // corrupt provenance block returns a 422 corrupt marker instead of 500-ing
     // — the listForgedSkills path was guarded in v0.2.0; this per-skill detail

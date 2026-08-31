@@ -248,7 +248,31 @@ export async function verifySkill(
   id: string,
   home = capforgeHome(),
 ): Promise<VerifyResult> {
-  const text = await readForgedSkillText(id, home);
+  // v0.5.0 (fix-verify-missing-skillmd-crash): readForgedSkillText throws
+  // ENOENT when the skill dir exists (mkdir already done in persistSigned/
+  // persistUnsigned) but the SKILL.md write never completed — a forge process
+  // killed mid-write, or an external deletion. The v0.3.0 guard wrapped
+  // splitProvenance but not this upstream read, so the missing-file case still
+  // crashed `capforge verify` / the detail API / `capforge promote` (which
+  // calls verifySkill). listForgedSkills already tolerates this
+  // (provenance.ts:325-328: readFile.catch + skip); mirror it here — a
+  // missing/unreadable SKILL.md is treated as an empty read so the existing
+  // `!record` path below returns a non-throwing invalid result instead of
+  // propagating ENOENT.
+  let text: string;
+  try {
+    text = await readForgedSkillText(id, home);
+  } catch {
+    const tr = await readTestResult(id, home);
+    return {
+      id,
+      signed: false,
+      test_pass: tr?.pass ?? false,
+      sig_valid: false,
+      record: null,
+      pubkey: null,
+    };
+  }
   // v0.3.0 (fix-verify-corrupt-provenance-crash): mirror the listForgedSkills
   // guard — a half-written SKILL.md whose provenance block is malformed JSON
   // (process killed mid-forge) makes splitProvenance throw ZodError/SyntaxError.

@@ -4,6 +4,16 @@ All notable changes to capforge are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-08-31
+
+### Fixed
+- **A skill dir with no `SKILL.md` no longer crashes `capforge verify` / the detail API / `capforge promote`** — `verifySkill` (`src/forge/provenance.ts`) called `readForgedSkillText` outside the try/catch that v0.3.0 added to guard `splitProvenance`, so a skill dir whose `SKILL.md` write never completed (a forge process killed mid-write after `mkdir`, or an externally deleted file) threw `ENOENT` and propagated: it crashed `capforge verify <id>`, returned `500` from `GET /api/skills/:id` (`src/server.ts`), and crashed `capforge promote <id>` (`src/promote/review.ts` calls `verifySkill`). This is the same blast radius the v0.2.0 (list) and v0.3.0 (verify/detail/promote corrupt-provenance) fixes intended to close, but those guards wrapped only `splitProvenance`, not the upstream `readFile` that feeds it — so a missing file (rather than corrupt JSON) still escaped the guard. `listForgedSkills` already tolerated this (`readFile.catch` + skip); the read is now guarded in `verifySkill` (returns a non-throwing invalid result) and in the detail endpoint (returns a `404` missing-marker instead of `500`), so `promote` degrades gracefully because `verifySkill` no longer throws.
+- **CLI skill-id traversal closed on `capforge verify` / `capforge promote`** — v0.4.0 added `validSkillId` checks at the HTTP handler boundary (`src/server.ts`) but the CLI commands `cmdVerify` and `cmdPromote` (`src/index.ts`) passed `args[0]` straight to `verifySkill` / `reviewAndPromote`, which read and write via `skillDir(id, home) = join(skillsDir(home), id)`. `path.join` normalizes `..`, so `capforge verify "../../<path>"` read a `SKILL.md` outside the capforge store and `capforge promote "../../<path>"` reached the write path `join(targetDir, id, "SKILL.md")`. The shared domain functions validate nothing themselves, so the v0.4.0 contract ("reject any id that is not a real skill id before lookup") was fulfilled only on the HTTP path. The id is now shape-checked at the CLI entry points too (exit `2` with an "invalid skill id" error), completing the v0.4.0 traversal guard across every entry point.
+
+### Changed
+- Bumped the forge protocol version (`FORGE_VERSION`) stamped into every `ForgeRecord.provenance` to `0.5.0`.
+- Package version `0.4.0` → `0.5.0`.
+
 ## [0.4.0] - 2026-08-23
 
 ### Fixed

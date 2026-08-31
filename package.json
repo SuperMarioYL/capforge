@@ -1,6 +1,6 @@
 {
   "name": "capforge",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Just-in-time capability forge for agentic coding agents — observe, synthesize, test, sign, and provenance-tag a new Skill when your agent hits a task none of its Skills cover.",
   "license": "Apache-2.0",
   "author": "SuperMarioYL",

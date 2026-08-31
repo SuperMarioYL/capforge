@@ -218,6 +218,29 @@ test("detail endpoint: GET /api/skills/:id returns 422 corrupt marker on a corru
   }
 });
 
+// v0.5.0 fix-verify-missing-skillmd-crash: the GET /api/skills/:id detail
+// endpoint called readForgedSkillText unguarded (the v0.3.0 guard wrapped
+// splitProvenance but not the upstream readFile), so a skill dir with no
+// SKILL.md (forge killed mid-write after mkdir, or external deletion) 500-ed.
+// It now returns a 404 missing-marker instead of crashing.
+test("detail endpoint: GET /api/skills/:id returns 404 missing-marker on a skill dir with no SKILL.md", async () => {
+  const home = await mkHome();
+  try {
+    const missingId = "missing-detail-deadbeef";
+    await mkdir(skillDir(missingId, home), { recursive: true });
+    const res = await app(home).request(`/api/skills/${missingId}`, {
+      headers: { host: "127.0.0.1" },
+    });
+    assert.equal(res.status, 404);
+    const j: any = await res.json();
+    assert.equal(j.missing, true);
+    assert.equal(j.signed, false);
+    assert.equal(j.sig_valid, false);
+  } finally {
+    await cleanup(home);
+  }
+});
+
 // v0.4.0 fix-skill-id-path-traversal-read: the `:id` path param flowed
 // unvalidated into skillDir=join(home,"skills",id); Hono decodes %2F, so a
 // `../`-encoded id escaped the capforge store and GET /api/skills/:id

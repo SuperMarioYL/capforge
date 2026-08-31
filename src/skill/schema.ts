@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
  */
 
 /** The forge protocol version, stamped into every ForgeRecord's provenance. */
-export const FORGE_VERSION = "0.4.0";
+export const FORGE_VERSION = "0.5.0";
 
 /** The single agent harness capforge v0.1 targets. */
 export const TARGET_HARNESS = "claude-code" as const;
