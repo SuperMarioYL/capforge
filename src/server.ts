@@ -135,7 +135,7 @@ export function createApp(opts: ServerOptions = {}) {
   });
 
   app.get("/api/health", (c) =>
-    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.5.0" }),
+    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.6.0" }),
   );
 
   app.get("/api/skills", async (c) => {

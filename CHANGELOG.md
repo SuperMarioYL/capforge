@@ -4,6 +4,16 @@ All notable changes to capforge are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-09-08
+
+### Fixed
+- **Version surfaces in lockstep — `web/site.json` now carries a `content_version`** — the live site (`capforge.lei6393.com`, built from `web/site.json` by the GitHub Pages `web-factory` workflow) had no `content_version` field at all, so the published site could not reflect the shipped tag and the site-refresh step had nothing to bump. Every other version surface was already at `0.5.0` (`VERSION`, `package.json`, `src/index.ts` `VERSION`, `src/skill/schema.ts` `FORGE_VERSION`, `src/server.ts` `/api/health` fallback, `CHANGELOG`), but the site was a version-drift blind spot — exactly the failure mode the sibling `cachepin` repo hit ("content_version had been frozen two minors behind the shipped tag"). All six surfaces are now bumped to `0.6.0` in lockstep, `web/site.json` carries `meta.content_version: "v0.6.0"`, and a new `test/version-consistency.test.ts` asserts they all agree (so a future bump that touches only one re-opens the drift under CI).
+- **`capforge forge --provider <invalid>` is no longer silently swallowed** — `parseForgeArgs` (`src/index.ts`) validated the `--provider` value but dropped an invalid one silently (`if (p === "anthropic" || p === "openai") o.provider = p;`), so `--provider gemini` (or a typo like `--provider anthopic`) left `o.provider` undefined with no error and forged via mock/anthropic with exit `0` — the user's explicit provider choice was a silent no-op that returned success. An invalid `--provider` value is now rejected at the CLI boundary with `forge: --provider must be 'anthropic' or 'openai', got: "<value>"` and exit `2`, matching the existing usage-error pattern (`!o.task`, `validSkillId`). A new `test/cli-args.test.ts` locks the rejection.
+
+### Changed
+- Bumped the forge protocol version (`FORGE_VERSION`) stamped into every `ForgeRecord.provenance` to `0.6.0`.
+- Package version `0.5.0` → `0.6.0`.
+
 ## [0.5.0] - 2026-08-31
 
 ### Fixed

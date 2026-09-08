@@ -9,6 +9,7 @@
     "toggle": true
   },
   "meta": {
+    "content_version": "v0.6.0",
     "visual_style": "neon-particle",
     "demo_source": "docs/demo-results.json"
   },

@@ -32,7 +32,7 @@ import { startServer } from "./server.js";
  * is smaller and more transparent than pulling in a parser.
  */
 
-const VERSION = "0.5.0";
+const VERSION = "0.6.0";
 
 function usage(): string {
   return [
@@ -117,8 +117,20 @@ function parseForgeArgs(args: string[]): ForgeArgs {
     if (a === "--task" || a === "-t") o.task = args[++i];
     else if (a === "--mock") o.mock = true;
     else if (a === "--provider") {
+      // v0.6.0 (fix-provider-flag-silently-swallowed): an invalid provider
+      // value used to be silently dropped (the old `if (p === "anthropic" ||
+      // "openai") o.provider = p;` left o.provider undefined with no error),
+      // so `--provider gemini` forged via mock/anthropic with exit 0 and no
+      // diagnostic — the user's explicit choice was a silent no-op. Reject it
+      // here with a descriptive throw; cmdForge maps this to exit 2, matching
+      // the existing usage-error pattern (!o.task / validSkillId).
       const p = args[++i];
-      if (p === "anthropic" || p === "openai") o.provider = p;
+      if (p !== "anthropic" && p !== "openai") {
+        throw new Error(
+          "--provider must be 'anthropic' or 'openai', got: " + JSON.stringify(p),
+        );
+      }
+      o.provider = p;
     } else if (a === "--model") o.model = args[++i];
     else if (!a.startsWith("-") && !o.task) o.task = a;
   }
@@ -126,7 +138,13 @@ function parseForgeArgs(args: string[]): ForgeArgs {
 }
 
 async function cmdForge(args: string[]): Promise<number> {
-  const o = parseForgeArgs(args);
+  let o: ForgeArgs;
+  try {
+    o = parseForgeArgs(args);
+  } catch (e) {
+    console.error("forge: " + (e instanceof Error ? e.message : String(e)));
+    return 2;
+  }
   if (!o.task) {
     console.error("forge: --task <path|json|-> is required");
     return 2;
