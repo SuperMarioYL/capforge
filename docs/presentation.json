@@ -1,0 +1,82 @@
+{
+  "name": "capforge",
+  "tagline": "Turn a missing skill into a tested artifact.",
+  "architecture": {
+    "title": "How capforge works",
+    "nodes": [
+      {
+        "title": "Task intake",
+        "detail": "src/observe/intake.ts"
+      },
+      {
+        "title": "Synthesis",
+        "detail": "src/forge/synthesize.ts"
+      },
+      {
+        "title": "Example tests",
+        "detail": "src/forge/test.ts"
+      },
+      {
+        "title": "Signed record",
+        "detail": "src/forge/provenance.ts"
+      }
+    ],
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        3
+      ]
+    ]
+  },
+  "process": {
+    "title": "From input to a useful result",
+    "steps": [
+      {
+        "title": "Read task",
+        "detail": "Three slugify examples"
+      },
+      {
+        "title": "Run assertions",
+        "detail": "Temporary working directory"
+      },
+      {
+        "title": "Sign and verify",
+        "detail": "Ed25519 artifact integrity"
+      }
+    ],
+    "result": "The recorded slugify example passes its assertions and signature verification."
+  },
+  "integrations": {
+    "title": "Supported input and output routes",
+    "items": [
+      {
+        "title": "task.json",
+        "detail": "Goal, tools, examples and assertion"
+      },
+      {
+        "title": "Anthropic / OpenAI",
+        "detail": "Optional configured synthesis providers"
+      },
+      {
+        "title": "SKILL.md",
+        "detail": "Local skill and provenance"
+      },
+      {
+        "title": "Ed25519",
+        "detail": "Artifact signature verification"
+      },
+      {
+        "title": "Local UI",
+        "detail": "Review and promotion"
+      }
+    ]
+  }
+}

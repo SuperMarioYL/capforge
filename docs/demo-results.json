@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "source_revision": "05fdcaf01f8eb345a01419d13b88183e14ff7224",
+  "scope": "Deterministic mock synthesis of the shipped slugify task, real shell assertions and Ed25519 signature verification; no model API is called.",
+  "steps": [
+    {
+      "label": "Recorded run",
+      "body": "Deterministic mock synthesis of the shipped slugify task, real shell assertions and Ed25519 signature verification; no model API is called.",
+      "command": "node examples/presentation-demo.mjs",
+      "output": "{\n  \"goal\": \"slugify a string\",\n  \"inputs\": [\n    \"Hello World\",\n    \"Foo Bar Baz!\",\n    \"Café Résumé\"\n  ],\n  \"test_pass\": true,\n  \"signed\": true,\n  \"signature_valid\": true,\n  \"model\": \"capforge-mock\"\n}"
+    }
+  ]
+}

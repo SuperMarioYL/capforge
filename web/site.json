@@ -1,85 +1,215 @@
 {
-  "schema": 1,
+  "schema": 3,
   "name": "capforge",
   "github": "https://github.com/SuperMarioYL/capforge",
   "host": "capforge.lei6393.com",
-  "lang": { "primary": "zh", "toggle": true },
-  "accent": ["#f97316"],
+  "palette": "auto",
+  "lang": {
+    "primary": "en",
+    "toggle": true
+  },
+  "meta": {
+    "visual_style": "neon-particle",
+    "demo_source": "docs/demo-results.json"
+  },
   "hero": {
-    "eyebrow": {
-      "zh": "运行时锻造 · 测试把关 · 本地签名",
-      "en": "Just-in-time · Test-gated · Locally signed"
-    },
     "headline": {
-      "zh": "你的 agent 装了上千 skill\n还是会撞上没覆盖的任务",
-      "en": "Your agent has a thousand skills\nand still hits a task none cover"
+      "en": "Turn a missing skill into a tested artifact.",
+      "zh": "把缺少的 Skill 变成可测试的产物。"
     },
     "sub": {
-      "zh": "capforge 观察任务、当场锻造一个新 skill，测试它、签名它、打上来源标签，然后一键装进你的 skill 库。",
-      "en": "capforge observes the task, forges a new Skill on the spot, tests it, signs it, and provenance-tags it — then promotes it into your library."
+      "en": "capforge turns an explicit task and example inputs into a candidate skill, runs its assertions, and signs successful results with local provenance.",
+      "zh": "capforge 根据明确任务与示例输入生成候选 Skill，执行断言，并为成功结果签名、记录来源。"
     },
-    "command": "npm i -g capforge",
-    "cta": { "zh": "查看 GitHub", "en": "See on GitHub" },
-    "ctaGithub": { "zh": "GitHub", "en": "GitHub" },
-    "scroll": { "zh": "向下看", "en": "Scroll" }
+    "href": "#quickstart"
   },
   "advantages": [
     {
       "title": {
-        "zh": "撞上没覆盖的任务？当场锻造一个",
-        "en": "Hits a task nothing covers? Forge one on the spot"
+        "en": "Examples define success",
+        "zh": "用示例定义成功"
       },
       "body": {
-        "zh": "不用等别人写好、也不用自己手写——给个任务描述，capforge 调你的模型合成一个新 skill，几秒就到手。",
-        "en": "No waiting for someone to curate it, no writing it by hand — give capforge the task and it calls your model to synthesize a new Skill in seconds."
-      },
-      "chips": ["› 观察任务上下文", "› 调你自己的模型", "› 写进 ~/.capforge/skills/"]
+        "en": "Assertions give the generated skill a concrete acceptance condition.",
+        "zh": "断言为生成 Skill 提供具体验收条件。"
+      }
     },
     {
       "title": {
-        "zh": "没通过测试的 skill，绝不签名",
-        "en": "Never signs a skill that fails its own test"
+        "en": "Keep provenance with the skill",
+        "zh": "来源随 Skill 保存"
       },
       "body": {
-        "zh": "每条样例都在沙箱里跑一遍；通不过断言的 skill 不会被签名——验证时直接报签名无效。",
-        "en": "Every example runs in a throwaway sandbox with a timeout; a skill that fails its own assertion is never signed — verify reports it as invalid."
-      },
-      "chips": ["› 沙箱 + 超时", "› 逐条样例验证", "› 不合格即拒签"]
+        "en": "Signed records include task, synthesis and test information.",
+        "zh": "签名记录包含任务、生成和测试信息。"
+      }
     },
     {
       "title": {
-        "zh": "签名覆盖整条记录，改一个字就露馅",
-        "en": "Signature covers the whole record — one edit and it shows"
+        "en": "Try the complete offline path",
+        "zh": "运行完整离线流程"
       },
       "body": {
-        "zh": "签名不只盖住 skill 文本，连测试、来源、合成模型一并覆盖；分享出去的 skill 谁也篡改不了来源。",
-        "en": "The signature commits to the skill text AND the full record — test, origin, how it was made — so a shared skill's provenance can't be silently rewritten."
-      },
-      "chips": ["› 离线 ed25519", "› 全记录防篡改", "› 自带可移植来源块"]
-    },
-    {
-      "title": {
-        "zh": "完全本地，自带密钥，不建账号",
-        "en": "Fully local, your own key, no account"
-      },
-      "body": {
-        "zh": "一个二进制、一把本地密钥、用你自己的 API key——不联网、不多用户、不需要登录，锻造完一键装进你的 agent。",
-        "en": "One binary, a local keypair, your own API key — no network, no multi-user, no sign-up. Promote a signed skill into your agent with one click."
-      },
-      "chips": ["› 单二进制", "› 自带 API key", "› 一键装进 Claude Code"]
+        "en": "The mock synthesizer needs no API key.",
+        "zh": "mock 生成器无需 API 密钥。"
+      }
     }
   ],
-  "scene": { "kind": "orbit" },
-  "cta": {
-    "headline": {
-      "zh": "让 agent 自己补上它缺的那块",
-      "en": "Let your agent forge the skill it's missing"
+  "demo": {
+    "title": {
+      "en": "Run it on a complete example",
+      "zh": "运行完整示例"
     },
-    "sub": {
-      "zh": "开源、本地、自带密钥。一条命令开始锻造。",
-      "en": "Open source, local, your own key. One command to start forging."
+    "note": {
+      "en": "Run the shipped slugify task through the offline mock, real shell assertions and signature verification. No model key is required.",
+      "zh": "使用随仓 slugify 任务运行离线 mock、真实 Shell 断言和签名校验，无需模型密钥。"
     },
-    "button": { "zh": "看 GitHub", "en": "See on GitHub" }
+    "source": "https://github.com/SuperMarioYL/capforge/blob/main/docs/demo-results.json",
+    "steps": [
+      {
+        "label": "Recorded run",
+        "body": "Deterministic mock synthesis of the shipped slugify task, real shell assertions and Ed25519 signature verification; no model API is called.",
+        "command": "node examples/presentation-demo.mjs",
+        "output": "{\n  \"goal\": \"slugify a string\",\n  \"inputs\": [\n    \"Hello World\",\n    \"Foo Bar Baz!\",\n    \"Café Résumé\"\n  ],\n  \"test_pass\": true,\n  \"signed\": true,\n  \"signature_valid\": true,\n  \"model\": \"capforge-mock\"\n}",
+        "image": "/assets/presentation/demo-0-light.svg",
+        "imageDark": "/assets/presentation/demo-0-dark.svg"
+      }
+    ]
   },
-  "footer": { "tag": { "zh": "运行时锻造 agent 技能", "en": "Just-in-time capability forge for agentic coding agents" } }
+  "quickstart": {
+    "title": {
+      "en": "Try it locally",
+      "zh": "本地上手"
+    },
+    "body": {
+      "en": "Run the shipped slugify task through the offline mock, real shell assertions and signature verification. No model key is required.",
+      "zh": "使用随仓 slugify 任务运行离线 mock、真实 Shell 断言和签名校验，无需模型密钥。"
+    },
+    "steps": [
+      {
+        "title": {
+          "en": "Install from source",
+          "zh": "从源码安装"
+        },
+        "code": "git clone https://github.com/SuperMarioYL/capforge.git\ncd capforge\nnpm ci\nnpm run build"
+      },
+      {
+        "title": {
+          "en": "Run the included example",
+          "zh": "运行随仓示例"
+        },
+        "code": "node examples/presentation-demo.mjs"
+      }
+    ]
+  },
+  "limitations": [
+    {
+      "en": "The recorded demo uses deterministic mock synthesis. It proves the local test/sign/verify path, not model quality.",
+      "zh": "记录示例使用确定性 mock 生成，验证本地测试、签名和验签链路，不代表模型生成质量。"
+    },
+    {
+      "en": "A temporary working directory and timeout are not an OS security sandbox. Review generated shell code and assertions before running them.",
+      "zh": "临时目录与超时不等同于操作系统安全沙箱；运行前应检查生成的 Shell 与断言。"
+    },
+    {
+      "en": "A valid signature establishes integrity relative to its key, not the safety or usefulness of a skill.",
+      "zh": "有效签名说明产物相对密钥的完整性，不证明 Skill 安全或有用。"
+    }
+  ],
+  "scene": {
+    "kind": "neon-graph",
+    "fallback": "/assets/presentation/scene-dark.svg",
+    "fallbackLight": "/assets/presentation/scene-light.svg"
+  },
+  "story": {
+    "intro": {
+      "title": {
+        "en": "A concrete task",
+        "zh": "从实际任务出发"
+      },
+      "body": {
+        "en": "A skill library can miss the task in front of you. Describe that task with examples and an assertion so a new candidate has something concrete to satisfy before promotion.",
+        "zh": "现有 Skill 库未必覆盖眼前的任务。把任务、示例与断言写清楚，新的候选 Skill 就有了进入正式库之前必须满足的条件。"
+      }
+    },
+    "sections": [
+      {
+        "title": {
+          "en": "Follow the operation",
+          "zh": "处理过程"
+        },
+        "body": {
+          "en": "intake validates the task schema; synthesize creates a skill through an explicit provider or offline mock; the test runner executes example assertions in a temporary directory. Successful records are Ed25519-signed and saved to the local store. verify checks the persisted artifact; promote copies an accepted skill to the configured target.",
+          "zh": "intake 校验任务结构；synthesize 通过指定模型提供方或离线 mock 生成 Skill；测试器在临时目录运行示例断言。成功记录经过 Ed25519 签名后保存到本地库，verify 检查已有产物，promote 将通过的 Skill 复制到配置目标。"
+        },
+        "image": {
+          "light": "/assets/presentation/process-light.svg",
+          "dark": "/assets/presentation/process-dark.svg",
+          "alt": {
+            "en": "Follow the operation",
+            "zh": "处理过程"
+          }
+        }
+      },
+      {
+        "title": {
+          "en": "How capforge works",
+          "zh": "capforge 的工作方式"
+        },
+        "body": {
+          "en": "intake validates the task schema; synthesize creates a skill through an explicit provider or offline mock; the test runner executes example assertions in a temporary directory. Successful records are Ed25519-signed and saved to the local store. verify checks the persisted artifact; promote copies an accepted skill to the configured target.",
+          "zh": "intake 校验任务结构；synthesize 通过指定模型提供方或离线 mock 生成 Skill；测试器在临时目录运行示例断言。成功记录经过 Ed25519 签名后保存到本地库，verify 检查已有产物，promote 将通过的 Skill 复制到配置目标。"
+        },
+        "image": {
+          "light": "/assets/presentation/architecture-light.svg",
+          "dark": "/assets/presentation/architecture-dark.svg",
+          "alt": {
+            "en": "How capforge works",
+            "zh": "capforge 的工作方式"
+          }
+        }
+      },
+      {
+        "title": {
+          "en": "Connect the pieces",
+          "zh": "输入与输出"
+        },
+        "body": {
+          "en": "The following routes are implemented in the source. Choose the input that matches your task and keep the resulting artifact with your project.",
+          "zh": "以下路径已有源码实现。按任务选择输入，并把生成的结果与项目一起保存。"
+        },
+        "image": {
+          "light": "/assets/presentation/integrations-light.svg",
+          "dark": "/assets/presentation/integrations-dark.svg",
+          "alt": {
+            "en": "Connect the pieces",
+            "zh": "输入与输出"
+          }
+        }
+      }
+    ],
+    "details": [
+      {
+        "title": {
+          "en": "Configuration",
+          "zh": "配置"
+        },
+        "body": {
+          "en": "CAPFORGE_HOME selects the store, keypair and config directory. CLAUDE_SKILLS_DIR selects the promotion target. provider/model configure online synthesis; ANTHROPIC_API_KEY or OPENAI_API_KEY is read only when using that provider. The demo uses a temporary store and cleans up its own files.",
+          "zh": "CAPFORGE_HOME 指定库、密钥和配置目录；CLAUDE_SKILLS_DIR 指定推广目标。provider/model 控制在线生成；使用相应提供方时读取 ANTHROPIC_API_KEY 或 OPENAI_API_KEY。示例使用临时库并清理自身文件。"
+        }
+      },
+      {
+        "title": {
+          "en": "Further use",
+          "zh": "进一步使用"
+        },
+        "body": {
+          "en": "The CLI exposes the following operations. Commands after the example use your own paths or identifiers.",
+          "zh": "CLI 提供以下操作。示例之外的命令需要替换成你的文件路径或标识。"
+        },
+        "code": "node dist/index.js forge --task examples/task-slugify.json --mock\nnode dist/index.js list\nnode dist/index.js verify <id>\nnode dist/index.js promote <id>\nnode dist/index.js ui"
+      }
+    ]
+  }
 }
