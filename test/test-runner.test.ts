@@ -80,14 +80,18 @@ test("runSkillTest (fix-timeout-exit-zero-false-pass): a hung skill times out an
 });
 
 // v0.7.0 fix-spawn-failure-exit-zero-false-pass: with reject:false execa also
-// RESOLVES a spawn failure (ENOEXEC — e.g. a script without a shebang, the
-// common shape of an LLM-synthesized ```bash fence) with failed:true and
+// RESOLVES a spawn failure (a script that cannot execute) with failed:true and
 // exitCode:undefined. The v0.2.0 fix covered the timeout path, but
 // `r.exitCode ?? 0` still coerced a script that never ran to EXIT=0 with empty
 // output, so an assert tolerating empty output signed an unexecutable skill.
 // A spawn failure is now a failed run: exit 126, forced assert failure, and
 // the reason in the trace stderr.
-const shebangLessScript = [
+
+// Deterministic spawn failure on every platform: the shebang interpreter does
+// not exist, so execve fails with ENOENT (no shell fallback — glibc execvp's
+// sh-fallback only covers ENOEXEC).
+const missingInterpreterScript = [
+  "#!/nonexistent-capforge-interpreter",
   'printf "%s" "$1"',
   "",
 ].join("\n");
@@ -96,9 +100,29 @@ test("runSkillTest (fix-spawn-failure-exit-zero-false-pass): a script that canno
   // an assert that tolerates empty output with EXIT=0 — exactly the shape
   // that used to pass on the coerced exit code
   const t = task('[ "$EXIT" = 0 ]');
-  const r = await runSkillTest(spec(shebangLessScript), t);
+  const r = await runSkillTest(spec(missingInterpreterScript), t);
   assert.equal(r.pass, false, "an unexecutable skill must not pass overall");
   assert.equal(r.traces.length, 2);
+  for (const tr of r.traces) {
+    assert.equal(tr.assert_pass, false, "a spawn-failed example must fail the assert");
+    assert.equal(tr.exit_code, 126, "a spawn failure must report 126, not 0");
+    assert.match(tr.stderr, /\[spawn\]/, "the trace must name the spawn failure");
+  }
+});
+
+// The originally reproduced manifestation: a shebang-less script. On macOS/BSD
+// execvp reports ENOEXEC (spawn failure — the false-pass above); on Linux,
+// glibc execvp falls back to running the file via /bin/sh, so the script can
+// legitimately run there and this test's spawn-failure contract does not apply.
+const shebangLessScript = [
+  'printf "%s" "$1"',
+  "",
+].join("\n");
+
+test("runSkillTest (fix-spawn-failure-exit-zero-false-pass): a shebang-less script that exec refuses is never reported as passing", { skip: process.platform === "linux" && "linux execvp runs shebang-less scripts via /bin/sh (no spawn failure to assert)" }, async () => {
+  const taskCtx = task('[ "$EXIT" = 0 ]');
+  const r = await runSkillTest(spec(shebangLessScript), taskCtx);
+  assert.equal(r.pass, false, "an unexecutable skill must not pass overall");
   for (const tr of r.traces) {
     assert.equal(tr.assert_pass, false, "a spawn-failed example must fail the assert");
     assert.equal(tr.exit_code, 126, "a spawn failure must report 126, not 0");

@@ -86,14 +86,14 @@ async function runOne(
     });
     timed_out = r.timedOut === true;
     // v0.7.0 (fix-spawn-failure-exit-zero-false-pass): with reject:false execa
-    // also RESOLVES a spawn failure (e.g. ENOEXEC from a shebang-less script —
-    // the common shape of an LLM-synthesized fence) with failed:true and
-    // exitCode:undefined. The v0.2.0 timeout fix handled the timeout path, but
-    // `r.exitCode ?? 0` still coerced a script that never ran to EXIT=0 with
-    // empty output, so an assert tolerating empty output signed an
-    // unexecutable skill. A spawn failure is a failed run: exit 126 (shell
-    // convention for "found but not executable"), forced assert failure below,
-    // and the reason in stderr.
+    // also RESOLVES a spawn failure (a script that cannot execute — e.g.
+    // ENOEXEC from a shebang-less script on macOS/BSD, or a shebang pointing
+    // at a missing interpreter) with failed:true and exitCode:undefined. The
+    // v0.2.0 timeout fix handled the timeout path, but `r.exitCode ?? 0` still
+    // coerced a script that never ran to EXIT=0 with empty output, so an assert
+    // tolerating empty output signed an unexecutable skill. A spawn failure is
+    // a failed run: exit 126 (shell convention for "found but not
+    // executable"), forced assert failure below, and the reason in stderr.
     spawn_failed = !timed_out && r.failed === true && r.exitCode === undefined;
     exit_code = timed_out ? 124 : spawn_failed ? 126 : (r.exitCode ?? 0);
     stdout = r.stdout ?? "";
