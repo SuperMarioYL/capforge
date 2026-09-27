@@ -62,6 +62,37 @@ test("POST /api/forge rejects a malformed task with 400", async () => {
   }
 });
 
+// v0.7.0 fix-forge-provider-http-boundary: the v0.6.0 fix rejected an invalid
+// --provider at the CLI boundary only; POST /api/forge still accepted any
+// provider string, which resolveProvider treated as a forced provider — an
+// opaque 500 from an undefined model id (no key) or a silent forge via OpenAI
+// (key set). The HTTP boundary now returns the CLI's diagnostic as a 400.
+test("POST /api/forge (fix-forge-provider-http-boundary): rejects an invalid provider with 400, accepts a valid one", async () => {
+  const home = await mkHome();
+  try {
+    const res = await req(home, "POST", "/api/forge", {
+      task: slugifyTask,
+      provider: "gemini",
+    });
+    assert.equal(res.status, 400, "an invalid provider must be rejected before any forge");
+    const j: any = await res.json();
+    assert.match(j.error, /must be 'anthropic' or 'openai'/);
+
+    // a valid provider value is still accepted (mock run needs no API key)
+    const ok = await req(home, "POST", "/api/forge", {
+      task: slugifyTask,
+      mock: true,
+      provider: "anthropic",
+    });
+    assert.equal(ok.status, 200);
+    const oj: any = await ok.json();
+    assert.equal(oj.signed, true);
+    assert.equal(oj.record.synthesis.model, "capforge-mock");
+  } finally {
+    await cleanup(home);
+  }
+});
+
 test("GET /api/skills lists forged skills; promote writes to the target dir", async () => {
   const home = await mkHome();
   const target = await mkClaudeTarget();

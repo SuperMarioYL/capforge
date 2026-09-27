@@ -32,7 +32,7 @@ import { startServer } from "./server.js";
  * is smaller and more transparent than pulling in a parser.
  */
 
-const VERSION = "0.6.0";
+const VERSION = "0.7.0";
 
 function usage(): string {
   return [

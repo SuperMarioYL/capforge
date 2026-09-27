@@ -72,6 +72,10 @@ async function runOne(
   // "never sign a failing skill" gate. Track the timeout and force the assert to
   // fail below so a timed-out example is never reported as passing.
   let timed_out = false;
+  // v0.7.0 (fix-spawn-failure-exit-zero-false-pass): execa with reject:false
+  // also resolves a spawn failure (script that cannot execute) instead of
+  // rejecting — see the success branch below.
+  let spawn_failed = false;
 
   try {
     const r = await execa(scriptPath, [input], {
@@ -81,9 +85,22 @@ async function runOne(
       shell: false,
     });
     timed_out = r.timedOut === true;
-    exit_code = timed_out ? 124 : (r.exitCode ?? 0);
+    // v0.7.0 (fix-spawn-failure-exit-zero-false-pass): with reject:false execa
+    // also RESOLVES a spawn failure (e.g. ENOEXEC from a shebang-less script —
+    // the common shape of an LLM-synthesized fence) with failed:true and
+    // exitCode:undefined. The v0.2.0 timeout fix handled the timeout path, but
+    // `r.exitCode ?? 0` still coerced a script that never ran to EXIT=0 with
+    // empty output, so an assert tolerating empty output signed an
+    // unexecutable skill. A spawn failure is a failed run: exit 126 (shell
+    // convention for "found but not executable"), forced assert failure below,
+    // and the reason in stderr.
+    spawn_failed = !timed_out && r.failed === true && r.exitCode === undefined;
+    exit_code = timed_out ? 124 : spawn_failed ? 126 : (r.exitCode ?? 0);
     stdout = r.stdout ?? "";
     stderr = r.stderr ?? "";
+    if (spawn_failed) {
+      stderr += `\n[spawn] ${r.shortMessage ?? r.message ?? "skill script could not be executed"}`;
+    }
   } catch (e) {
     const err = e as { exitCode?: number; stdout?: string; stderr?: string; message?: string; timedOut?: boolean };
     timed_out = err.timedOut === true;
@@ -93,10 +110,10 @@ async function runOne(
   }
 
   let assert_pass = false;
-  // A timed-out run must never pass, regardless of what the caller-supplied
-  // expected_assert would decide on EXIT=124 — force failure and skip the assert
-  // run so a hung skill is never signed.
-  if (timed_out) {
+  // A timed-out or spawn-failed run must never pass, regardless of what the
+  // caller-supplied expected_assert would decide on EXIT=0/124 — force failure
+  // and skip the assert run so a hung or unexecutable skill is never signed.
+  if (timed_out || spawn_failed) {
     assert_pass = false;
   } else {
     try {

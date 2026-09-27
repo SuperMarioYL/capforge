@@ -69,6 +69,21 @@ export function resolveProvider(
   const forced =
     opts.provider ?? (cfg.provider !== "auto" ? cfg.provider : undefined);
   if (forced) {
+    // v0.7.0 (fix-forge-provider-http-boundary): the declared types say
+    // "anthropic" | "openai", but opts.provider arrives from the network and
+    // cfg.provider from an unvalidated config.json (loadConfig spreads raw
+    // JSON). An unknown value used to fall through as "forced" with
+    // model = DEFAULT_MODELS[forced] = undefined and (anything not "anthropic")
+    // routed to the OpenAI client — an opaque crash deep in the AI SDK or a
+    // silent forge via OpenAI. The HTTP/CLI boundaries now reject that value
+    // earlier; this guard keeps the hand-edited-config path (and any future
+    // caller) from repeating the same silent-swallow, matching the codebase's
+    // reject-with-diagnostic convention.
+    if (forced !== "anthropic" && forced !== "openai") {
+      throw new Error(
+        "provider must be 'anthropic' or 'openai', got: " + JSON.stringify(forced),
+      );
+    }
     return {
       provider: forced,
       model: opts.model ?? cfg.model ?? DEFAULT_MODELS[forced],

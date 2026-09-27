@@ -4,6 +4,16 @@ All notable changes to capforge are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-09-28
+
+### Fixed
+- **A skill script that cannot execute is never reported as passing (and never signed)** — with `reject:false`, execa resolves a *spawn failure* (e.g. `ENOEXEC` from a shebang-less script — the common shape of an LLM-synthesized ` ```bash ` fence) with `failed:true` and `exitCode:undefined`. The v0.2.0 timeout fix handled the timeout path, but `r.exitCode ?? 0` in `runOne` (`src/forge/test.ts`) still coerced a script that never ran to `EXIT=0` with empty stdout, so an `expected_assert` tolerating empty output (e.g. `[ "$EXIT" = "0" ]`) passed and the unexecutable skill was ed25519-signed — a false-pass in the m2 "never sign a failing skill" gate. A spawn failure is now a failed run: exit `126`, forced `assert_pass=false`, and the spawn reason in the trace stderr. (`src/forge/test.ts`, `test/test-runner.test.ts`)
+- **The v0.6.0 invalid-provider fix is completed at the remaining boundaries** — v0.6.0 rejects an invalid `--provider` at the CLI boundary, but `POST /api/forge` still accepted any provider string (`src/server.ts`), which `resolveProvider` treated as a forced provider: with no API keys that produced an opaque `500 "Internal Server Error"` from an undefined model id deep in the AI SDK, and with `OPENAI_API_KEY` set it silently forged via OpenAI — the exact silent-intent-drop v0.6.0 closed. The HTTP boundary now returns the CLI's diagnostic as a `400`, and `resolveProvider` (`src/forge/synthesize.ts`) throws a descriptive error on a forced provider outside `anthropic`/`openai` (covering a hand-edited `config.json`, which `loadConfig` spreads unvalidated). (`src/server.ts`, `src/forge/synthesize.ts`, `test/server.test.ts`, `test/synthesize.test.ts`)
+
+### Changed
+- Bumped the forge protocol version (`FORGE_VERSION`) stamped into every `ForgeRecord.provenance` to `0.7.0`.
+- Package version `0.6.0` → `0.7.0`.
+
 ## [0.6.0] - 2026-09-08
 
 ### Fixed

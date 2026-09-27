@@ -92,3 +92,21 @@ test("synthesize(mock) yields a record-shaped synthesis block", async () => {
   assert.match(r.synthesis.prompt_hash, /^[0-9a-f]{16}$/);
   assert.ok(r.spec.script);
 });
+
+// v0.7.0 fix-forge-provider-http-boundary: opts.provider arrives from the
+// network and cfg.provider from an unvalidated config.json (loadConfig spreads
+// raw JSON). An unknown value used to fall through as a "forced" provider with
+// model = DEFAULT_MODELS[forced] = undefined — an opaque crash deep in the AI
+// SDK (no key) or a silent forge via OpenAI (key set). It now throws a
+// descriptive error instead of silently mapping the user's intent.
+test("resolveProvider (fix-forge-provider-http-boundary): an invalid forced provider throws a descriptive error", () => {
+  assert.throws(
+    // cfg.provider is unvalidated at loadConfig time — simulate a hand-edited config.json
+    () => resolveProvider({ provider: "gemini" as any, model: null }),
+    /must be 'anthropic' or 'openai'/,
+  );
+  assert.throws(
+    () => resolveProvider({ provider: "auto", model: null }, { provider: "gemini" as any }),
+    /must be 'anthropic' or 'openai'/,
+  );
+});

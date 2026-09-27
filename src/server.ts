@@ -135,7 +135,7 @@ export function createApp(opts: ServerOptions = {}) {
   });
 
   app.get("/api/health", (c) =>
-    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.6.0" }),
+    c.json({ ok: true, home, version: process.env.npm_package_version ?? "0.7.0" }),
   );
 
   app.get("/api/skills", async (c) => {
@@ -232,11 +232,29 @@ export function createApp(opts: ServerOptions = {}) {
     if (!parsed.success) {
       return c.json({ error: "invalid task context", issues: parsed.error.issues }, 400);
     }
+    // v0.7.0 (fix-forge-provider-http-boundary): the v0.6.0 fix rejected an
+    // invalid --provider at the CLI boundary only. Here any string used to pass
+    // through to resolveProvider, which treats it as a forced provider — with no
+    // API keys that produced an opaque 500 from an undefined model id, and with
+    // OPENAI_API_KEY set it silently forged via OpenAI (the exact
+    // silent-intent-drop the v0.6.0 CLI fix closed). Validate at the HTTP
+    // boundary with the CLI's diagnostic, mirroring the exit-2 usage-error
+    // pattern.
+    const provider = typeof body.provider === "string" ? body.provider : undefined;
+    if (provider !== undefined && provider !== "anthropic" && provider !== "openai") {
+      return c.json(
+        {
+          error:
+            "--provider must be 'anthropic' or 'openai', got: " + JSON.stringify(provider),
+        },
+        400,
+      );
+    }
     const cfg = await loadConfig(home);
     const result: ForgeResult = await forge(parsed.data, cfg, {
       home,
       mock: body.mock === true ? true : undefined,
-      provider: typeof body.provider === "string" ? body.provider : undefined,
+      provider,
       model: typeof body.model === "string" ? body.model : undefined,
     });
     return c.json(result);

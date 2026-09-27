@@ -78,3 +78,30 @@ test("runSkillTest (fix-timeout-exit-zero-false-pass): a hung skill times out an
     assert.equal(tr.exit_code, 124, "a timeout must report exit 124, not 0");
   }
 });
+
+// v0.7.0 fix-spawn-failure-exit-zero-false-pass: with reject:false execa also
+// RESOLVES a spawn failure (ENOEXEC — e.g. a script without a shebang, the
+// common shape of an LLM-synthesized ```bash fence) with failed:true and
+// exitCode:undefined. The v0.2.0 fix covered the timeout path, but
+// `r.exitCode ?? 0` still coerced a script that never ran to EXIT=0 with empty
+// output, so an assert tolerating empty output signed an unexecutable skill.
+// A spawn failure is now a failed run: exit 126, forced assert failure, and
+// the reason in the trace stderr.
+const shebangLessScript = [
+  'printf "%s" "$1"',
+  "",
+].join("\n");
+
+test("runSkillTest (fix-spawn-failure-exit-zero-false-pass): a script that cannot execute is never reported as passing", async () => {
+  // an assert that tolerates empty output with EXIT=0 — exactly the shape
+  // that used to pass on the coerced exit code
+  const t = task('[ "$EXIT" = 0 ]');
+  const r = await runSkillTest(spec(shebangLessScript), t);
+  assert.equal(r.pass, false, "an unexecutable skill must not pass overall");
+  assert.equal(r.traces.length, 2);
+  for (const tr of r.traces) {
+    assert.equal(tr.assert_pass, false, "a spawn-failed example must fail the assert");
+    assert.equal(tr.exit_code, 126, "a spawn failure must report 126, not 0");
+    assert.match(tr.stderr, /\[spawn\]/, "the trace must name the spawn failure");
+  }
+});
